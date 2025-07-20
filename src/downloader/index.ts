@@ -3,8 +3,10 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { addToCache, isCached } from "../cache.js";
 import type { RegularCodecType, WebplaybackCodecType } from "./codecType.js";
+import type { GetSongResponse } from "../appleMusicApi/types/responses.js";
+import { FileMetadata } from "./fileMetadata.js";
 
-export async function downloadSong(streamUrl: string, decryptionKey: string, songCodec: RegularCodecType | WebplaybackCodecType): Promise<string> {
+export async function downloadSong(streamUrl: string, decryptionKey: string, songCodec: RegularCodecType | WebplaybackCodecType, songResponse: GetSongResponse<["extendedAssetUrls"], ["albums"]>): Promise<string> {
     let baseOutputName = streamUrl.match(/(?:.*\/)\s*(\S*?)[.?]/)?.[1];
     if (!baseOutputName) { throw new Error("could not get base output name from stream url!"); }
     baseOutputName += `_${songCodec}`;
@@ -35,13 +37,15 @@ export async function downloadSong(streamUrl: string, decryptionKey: string, son
 
     addToCache(encryptedName);
 
-    await new Promise<void>((res, rej) => {
+    const fileMetadata = FileMetadata.fromSongResponse(songResponse);
+
+    await new Promise<void>(async (res, rej) => {
         const child = spawn(config.downloader.ffmpeg_path, [
             "-loglevel", "error",
             "-y",
             "-decryption_key", decryptionKey,
-            "-i", encryptedPath,
-            "-c", "copy",
+            ...await fileMetadata.setupFfmpegInputs(encryptedPath),
+            ...await fileMetadata.toFfmpegArgs(),
             "-movflags", "+faststart",
             decryptedPath
         ]);

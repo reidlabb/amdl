@@ -29,9 +29,10 @@ router.get("/download", async (req, res, next) => {
             const trackMetadata = await appleMusicApi.getSong(id);
             const trackAttributes = trackMetadata.data[0].attributes;
             const streamInfo = await StreamInfo.fromTrackMetadata(trackAttributes, regularCodec);
+
             if (streamInfo.widevinePssh !== undefined) {
                 const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, regularCodec);
+                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, regularCodec, trackMetadata);
                 res.download(filePath);
             } else {
                 throw new Error("no decryption key found for regular codec! this is typical. don't fret!");
@@ -39,10 +40,12 @@ router.get("/download", async (req, res, next) => {
         } else if (codecType.regularOrWebplayback === "webplayback") {
             const webplaybackCodec = codecType.codecType as WebplaybackCodecType; // safe cast, zod
             const webplaybackResponse = await appleMusicApi.getWebplayback(id);
+            const trackMetadata = await appleMusicApi.getSong(id);
             const streamInfo = await StreamInfo.fromWebplayback(webplaybackResponse, webplaybackCodec);
+
             if (streamInfo.widevinePssh !== undefined) {
                 const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, webplaybackCodec);
+                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, webplaybackCodec, trackMetadata);
                 res.download(filePath);
             } else {
                 throw new Error("no decryption key found for web playback! this should not happen..");

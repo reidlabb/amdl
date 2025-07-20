@@ -1,6 +1,5 @@
 import type { RegularCodecType } from "downloader/codecType.js";
 
-
 export const songCodecRegex: { [key in RegularCodecType]: RegExp } = {
     "aac": /audio-stereo-\d+/,
     "aac_he": /audio-HE-stereo-\d+/,
