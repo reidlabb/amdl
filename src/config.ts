@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import * as log from "./log.js";
 import toml from "toml";
-import { z, ZodError, ZodSchema } from "zod";
+import { z, ZodError, ZodObject } from "zod";
 import * as dotenv from "dotenv";
 import { fromZodError } from "zod-validation-error";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const configSchema = z.object({
     server: z.object({
@@ -57,7 +57,7 @@ if (!fs.existsSync("config.toml")) {
  * @param something the thing to load the schema from--either a **file path to a toml file** or **an object** (e.g. process.env)
  * @returns the inferred type of the schema
  */
-function loadSchemaSomething<T extends ZodSchema>(schema: T, something: string | unknown): z.infer<T> {
+function loadSchemaSomething<T extends ZodObject>(schema: T, something: string | unknown): z.infer<T> {
     try {
         if (typeof something === "string") {
             return schema.parse(toml.parse(fs.readFileSync(something, "utf-8")));

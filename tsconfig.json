@@ -10,6 +10,7 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "sourceMap": true,
+        "resolveJsonModule": true,
         "baseUrl": "src",
         "outDir": "dist"
     },

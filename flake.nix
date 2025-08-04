@@ -25,7 +25,7 @@
           # uncomment this and let the build fail, then get the current hash
           # very scuffed but endorsed!
           # npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          npmDepsHash = "sha256-hMI010P3lJIMCMaj9HYUZopMAWaNQMCG1QXk/OdV1u4=";
+          npmDepsHash = "sha256-1p/QMZQoFwXxXxlTYTtdHQ3O7p+RSzD3RpoKRB40CHg=";
 
           nativeBuildInputs = with pkgs; [ makeWrapper ];
 
@@ -38,7 +38,7 @@
             mv node_modules dist views public $out/
             makeWrapper ${pkgs.nodejs-slim}/bin/node $out/bin/amdl \
               --prefix PATH : ${makeBinPath buildInputs} \
-              --add-flags "$out/dist/index.js" \
+              --add-flags "$out/dist/src/index.js" \
               --set VIEWS_DIR $out/views \
               --set PUBLIC_DIR $out/public
 

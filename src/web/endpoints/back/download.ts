@@ -6,19 +6,32 @@ import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { z } from "zod";
 import { validate } from "../../validate.js";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
+import { paths } from "../../openApi.js";
 
 const router = express.Router();
 
+const path = "/download";
 const schema = z.object({
     query: z.object({
         id: z.string(),
-        codec: regularCodecTypeSchema.or(webplaybackCodecTypeSchema)
+        codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
     })
 });
 
+paths[path] = {
+    get: {
+        requestParams: { query: schema.shape.query },
+        responses: {
+            200: { description: "returns a song in an mp4 container" },
+            400: { description: "bad request, invalid query parameters. sent as a zod error with details" },
+            default: { description: "upstream api error, or some other error" }
+        }
+    }
+};
+
 // TODO: support more encryption schemes
 // TODO: some type of agnostic-ness for the encryption schemes on regular codec
-router.get("/download", async (req, res, next) => {
+router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
 

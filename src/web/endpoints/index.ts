@@ -1,6 +1,8 @@
+import documentation from "./front/documentation.js";
 import frontDownload from "./front/download.js";
 import search from "./front/search.js";
 export const front = [
+    documentation,
     frontDownload,
     search
 ];
