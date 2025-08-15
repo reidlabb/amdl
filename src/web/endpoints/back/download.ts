@@ -1,5 +1,5 @@
 import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
-import { downloadSong } from "../../../downloader/index.js";
+import { downloadSongFile } from "../../../downloader/index.js";
 import express from "express";
 import StreamInfo from "../../../downloader/streamInfo.js";
 import { appleMusicApi } from "../../../appleMusicApi/index.js";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import { validate } from "../../validate.js";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
 import { paths } from "../../openApi.js";
+import { formatSong } from "../../../downloader/format.js";
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ paths[path] = {
 
 // TODO: support more encryption schemes
 // TODO: some type of agnostic-ness for the encryption schemes on regular codec
+// TODO: now that i think about it.. there gotta be an easier way for the codec type stuff im cryin, like look in dl segment too
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
@@ -45,8 +47,13 @@ router.get(path, async (req, res, next) => {
 
             if (streamInfo.widevinePssh !== undefined) {
                 const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, regularCodec, trackMetadata);
-                res.download(filePath);
+
+                const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, regularCodec, trackMetadata);
+                const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
+                const fileName = formatSong(trackAttributes) + fileExt;
+
+                res.attachment(fileName);
+                res.sendFile(filePath, { root: "." });
             } else {
                 throw new Error("no decryption key found for regular codec! this is typical. don't fret!");
             }
@@ -54,12 +61,18 @@ router.get(path, async (req, res, next) => {
             const webplaybackCodec = codecType.codecType as WebplaybackCodecType; // safe cast, zod
             const webplaybackResponse = await appleMusicApi.getWebplayback(id);
             const trackMetadata = await appleMusicApi.getSong(id);
+            const trackAttributes = trackMetadata.data[0].attributes;
             const streamInfo = await StreamInfo.fromWebplayback(webplaybackResponse, webplaybackCodec);
 
             if (streamInfo.widevinePssh !== undefined) {
                 const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const filePath = await downloadSong(streamInfo.streamUrl, decryptionKey, webplaybackCodec, trackMetadata);
-                res.download(filePath);
+
+                const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, webplaybackCodec, trackMetadata);
+                const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
+                const fileName = formatSong(trackAttributes) + fileExt;
+
+                res.attachment(fileName);
+                res.sendFile(filePath, { root: "." });
             } else {
                 throw new Error("no decryption key found for web playback! this should not happen..");
             }

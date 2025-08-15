@@ -14,18 +14,18 @@ export interface GetAlbumResponse<
 > {
     // https://developer.apple.com/documentation/applemusicapi/albums
     data: {
-        id: string,
-        type: "albums",
-        href: string,
+        id: string;
+        type: "albums";
+        href: string;
         // https://developer.apple.com/documentation/applemusicapi/albums/attributes-data.dictionary
-        attributes: AlbumAttributes<T>,
+        attributes: AlbumAttributes<T>;
         // https://developer.apple.com/documentation/applemusicapi/albums/relationships-data.dictionary
         relationships: {
             [K in U[number]]: Relationship<
                 K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never
             >
-        }
-    }[]
+        };
+    }[];
 }
 
 // https://developer.apple.com/documentation/applemusicapi/get-a-catalog-playlist
@@ -35,18 +35,18 @@ export interface GetPlaylistResponse<
 > {
     // https://developer.apple.com/documentation/applemusicapi/playlists
     data: {
-        id: string
-        type: "playlists"
-        href: string
+        id: string;
+        type: "playlists";
+        href: string;
         // https://developer.apple.com/documentation/applemusicapi/playlists/attributes-data.dictionary
-        attributes: SongAttributes<T>
+        attributes: SongAttributes<T>;
         // https://developer.apple.com/documentation/applemusicapi/playlists/relationships-data.dictionary
         relationships: {
             [K in U[number]]: Relationship<
                 K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never
             >
-        }
-    }[]
+        };
+    }[];
 }
 
 // https://developer.apple.com/documentation/applemusicapi/get-a-catalog-song
@@ -56,18 +56,18 @@ export interface GetSongResponse<
 > {
     // https://developer.apple.com/documentation/applemusicapi/songs
     data: {
-        id: string
-        type: "songs"
-        href: string
+        id: string;
+        type: "songs";
+        href: string;
         // https://developer.apple.com/documentation/applemusicapi/songs/attributes-data.dictionary
-        attributes: SongAttributes<T>
+        attributes: SongAttributes<T>;
         // https://developer.apple.com/documentation/applemusicapi/songs/relationships-data.dictionary
         relationships: {
             [K in U[number]]: Relationship<
                 K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never
             >
-        }
-    }[]
+        };
+    }[];
 }
 
 // TODO: support more than just albums
@@ -85,19 +85,19 @@ export interface SearchResponse<
         albums?: {
             // https://developer.apple.com/documentation/applemusicapi/albums
             data: {
-                id: string,
-                type: "albums",
-                href: string,
-                attributes: AlbumAttributes<Extract<T, AlbumAttributesExtensionTypes>>,
+                id: string;
+                type: "albums";
+                href: string;
+                attributes: AlbumAttributes<Extract<T, AlbumAttributesExtensionTypes>>;
                 // https://developer.apple.com/documentation/applemusicapi/albums/relationships-data.dictionary
                 relationships: {
                     [K in U[number]]: Relationship<
                         K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never
                     >
-                }
-            }[],
-            href?: string,
-            next?: string,
-        }
-    }
+                };
+            }[];
+            href?: string;
+            next?: string;
+        };
+    };
 }

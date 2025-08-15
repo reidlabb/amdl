@@ -6,7 +6,6 @@ import { pipeline } from "node:stream/promises";
 import { addToCache, isCached } from "../cache.js";
 
 // TODO: simply add more fields. ha!
-// TODO: add album cover
 // TODO: add lyrics (what format??)
 export class FileMetadata {
     public readonly artist: string;
@@ -50,7 +49,7 @@ export class FileMetadata {
         this.composer = composer;
     }
 
-    public static fromSongResponse(trackMetadata: GetSongResponse<["extendedAssetUrls"], ["albums"]>): FileMetadata {
+    public static fromSongResponse(trackMetadata: GetSongResponse<[], ["albums"]>): FileMetadata {
         const trackAttributes = trackMetadata.data[0].attributes;
         const albumAttributes = trackMetadata.data[0].relationships.albums.data[0].attributes;
 
@@ -102,8 +101,9 @@ export class FileMetadata {
             "-i", imagePath,
             "-map", "0",
             "-map", "1",
+            "-disposition:v", "attached_pic",
             "-c:a", "copy",
-            "-c:v", "mjpeg"
+            "-c:v", "copy"
         ];
     }
 

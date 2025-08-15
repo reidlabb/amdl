@@ -57,11 +57,12 @@ function removeCacheEntry(fileName: string): void {
     try {
         fs.unlinkSync(path.join(config.downloader.cache.directory, fileName));
     } catch (err) {
-        log.error(`could not remove cache entry ${fileName}`);
-        log.error("this could result in 2 effects:");
-        log.error("1. the cache entry will be removed, and the file never existed, operation is perfect, ignore this");
-        log.error("2. the cache entry will be removed, but the file exists, so it will remain in the filesystem");
-        log.error("if you experience the latter, the manual deletion of the file is required to fix this.");
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+            log.debug(`file for cache entry ${fileName} missing, dropping`);
+        } else {
+            log.error(`could not remove cache entry ${fileName}!`);
+            log.error(err);
+        }
     }
 }
 

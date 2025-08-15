@@ -25,7 +25,7 @@
           # uncomment this and let the build fail, then get the current hash
           # very scuffed but endorsed!
           # npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          npmDepsHash = "sha256-1p/QMZQoFwXxXxlTYTtdHQ3O7p+RSzD3RpoKRB40CHg=";
+          npmDepsHash = "sha256-lvueqcSBjtt9RSMwq2NWCAVT0NrZwDmhEYkjtdOs7js=";
 
           nativeBuildInputs = with pkgs; [ makeWrapper ];
 
@@ -40,7 +40,8 @@
               --prefix PATH : ${makeBinPath buildInputs} \
               --add-flags "$out/dist/src/index.js" \
               --set VIEWS_DIR $out/views \
-              --set PUBLIC_DIR $out/public
+              --set PUBLIC_DIR $out/public \
+              --set NODE_ENV production
 
             runHook postInstall
           '';
@@ -165,8 +166,8 @@
 
               preStart = ''
                 config='${cfg.stateDir}/config.toml'
-                cp -f '${toml.generate "config.toml" cfg.config}' "$config"
-              ''; # TODO: symlink instead of cp, shouldn't matter for reproducibility since its preStart but whatever
+                ln -sf '${toml.generate "config.toml" cfg.config}' "$config"
+              '';
 
               serviceConfig = {
                 Type = "simple";

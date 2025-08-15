@@ -95,8 +95,8 @@ export default class AppleMusicApi {
         U extends RelationshipTypes<T> = ["tracks"]
     > (
         term: string,
-        limit: number = 25,
-        offset: number = 0,
+        limit = 25,
+        offset = 0,
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<SearchResponse<T, U>> {
@@ -118,10 +118,10 @@ export default class AppleMusicApi {
     async getWebplayback(
         trackId: string
     ): Promise<WebplaybackResponse> {
-        // this is one of those endpoints that returns a 200
-        // no matter what happens, even if theres an error
-        // so we gotta do this stuuuupid hack
-        // TODO: find a better way to do this
+        // no way around this
+        // as we know, we can't have fun things with "WOA" urls
+        // https://files.catbox.moe/5oqolg.png (THE LINK WAS CENSORED?? TAKEN DOWN FROM CNN??)
+        // https://files.catbox.moe/wjxwzk.png
         const res = await this.http.post(webplaybackApiUrl, {
             salableAdamId: trackId,
             language: config.downloader.api.language
@@ -162,8 +162,8 @@ export default class AppleMusicApi {
         names: string | string[],
         relationships: string[],
         extend: string[]
-    ): { [scope: string]: string } {
-        const params: { [scope: string]: string } = {};
+    ): Record<string, string> {
+        const params: Record<string, string> = {};
 
         for (const name of Array.isArray(names) ? names : [names]) {
             for (const relationship of relationships) { params[`include[${name}]`] = relationship; }
@@ -179,5 +179,5 @@ export const appleMusicApi = new AppleMusicApi(env.ITUA, config.downloader.api.l
 // these are super special types
 // i'm not putting this in the ./types folder.
 // maybe ltr bleh
-export type WebplaybackResponse = { songList: { assets: { flavor: string, URL: string }[], songId: string }[] };
-export type WidevineLicenseResponse = { license: string | undefined };
+export interface WebplaybackResponse { songList: { assets: { flavor: string, URL: string }[], songId: string }[] };
+export interface WidevineLicenseResponse { license: string | undefined };

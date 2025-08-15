@@ -40,8 +40,8 @@ currently you can only get basic widevine ones, everything related to playready 
 
 guaranteed formats to work include:
 
-- aac-legacy
-- aac-he-legacy
+- `aac_legacy`
+- `aac_he_legacy`
 
 ## screenshots
 

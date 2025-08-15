@@ -14,6 +14,8 @@ type M3u8 = ReturnType<typeof hls.default.parse>;
 export default class StreamInfo {
     public readonly trackId: string;
     public readonly streamUrl: string;
+    public readonly streamParsed: M3u8;
+    public readonly primaryFileUrl: string;
     public readonly widevinePssh: string | undefined;
     public readonly playreadyPssh: string | undefined;
     public readonly fairplayKey: string | undefined;
@@ -21,20 +23,25 @@ export default class StreamInfo {
     private constructor(
         trackId: string,
         streamUrl: string,
+        streamParsed: M3u8,
+        primaryFileUrl: string,
         widevinePssh: string | undefined,
         playreadyPssh: string | undefined,
         fairplayKey: string | undefined
     ) {
         this.trackId = trackId;
         this.streamUrl = streamUrl;
+        this.streamParsed = streamParsed;
+        this.primaryFileUrl = primaryFileUrl;
         this.widevinePssh = widevinePssh;
         this.playreadyPssh = playreadyPssh;
         this.fairplayKey = fairplayKey;
     }
 
-    // TODO: why can't we decrypt widevine ones with this?
+    // why can't we decrypt widevine ones with this?
     // we get a valid key.. but it doesn't work :-(
     // upd: it seems thats just how the cookie crumbles. oh well
+    // upd: removed todo. as i said its just how it is
     public static async fromTrackMetadata(trackMetadata: SongAttributes<["extendedAssetUrls"]>, codec: RegularCodecType): Promise<StreamInfo> {
         log.warn("the track metadata method is experimental, and may not work or give correct values!");
         log.warn("if there is a failure--use a codec that uses the webplayback method");
@@ -52,6 +59,10 @@ export default class StreamInfo {
         const drmIds = assetInfos[variantId]["AUDIO-SESSION-KEY-IDS"];
 
         const correctM3u8Url = m3u8Url.substring(0, m3u8Url.lastIndexOf("/")) + "/" + playlist.uri;
+        const correctM3u8 = await axios.get(correctM3u8Url, { responseType: "text" });
+        const correctM3u8Parsed = hls.default.parse(correctM3u8.data);
+
+        const primaryFileUrl = getPrimaryFileUrl(m3u8Parsed);
 
         const widevinePssh = getWidevinePssh(drmInfos, drmIds);
         const playreadyPssh = getPlayreadyPssh(drmInfos, drmIds);
@@ -63,6 +74,8 @@ export default class StreamInfo {
         return new StreamInfo(
             trackId,
             correctM3u8Url,
+            correctM3u8Parsed,
+            primaryFileUrl,
             widevinePssh,
             playreadyPssh,
             fairplayKey
@@ -87,6 +100,8 @@ export default class StreamInfo {
         const m3u8 = await axios.get(m3u8Url, { responseType: "text" });
         const m3u8Parsed = hls.default.parse(m3u8.data);
 
+        const primaryFileUrl = getPrimaryFileUrl(m3u8Parsed);
+
         const widevinePssh =  m3u8Parsed.lines.find((line) => { return line.name === "key"; })?.attributes?.uri;
         if (widevinePssh === undefined) { throw new Error("widevine uri is missing!"); }
         if (typeof widevinePssh !== "string") { throw new Error("widevine uri is not a string!"); }
@@ -95,6 +110,8 @@ export default class StreamInfo {
         return new StreamInfo(
             trackId,
             m3u8Url,
+            m3u8Parsed,
+            primaryFileUrl,
             widevinePssh,
             undefined,
             undefined
@@ -102,7 +119,11 @@ export default class StreamInfo {
     }
 }
 
-type DrmInfos = { [key: string]: { [key: string]: { "URI": string } }; };
+function getPrimaryFileUrl(m3u8Data: M3u8): string {
+    return m3u8Data.segments[0].uri;
+}
+
+type DrmInfos = Record<string, Record<string, { "URI": string }>>;;
 function getDrmInfos(m3u8Data: M3u8): DrmInfos {
     // see `getAssetInfos` for the reason why this is so bad
     for (const line of m3u8Data.lines) {
@@ -121,7 +142,7 @@ function getDrmInfos(m3u8Data: M3u8): DrmInfos {
     throw new Error("m3u8 missing audio session key info!");
 }
 
-type AssetInfos = { [key: string]: { "AUDIO-SESSION-KEY-IDS": string[]; }; }
+type AssetInfos = Record<string, { "AUDIO-SESSION-KEY-IDS": string[] }>;
 function getAssetInfos(m3u8Data: M3u8): AssetInfos {
     // LOL??? THIS LIBRARY IS SO BAD
     // YOU CAN'T MAKE THIS SHIT UP

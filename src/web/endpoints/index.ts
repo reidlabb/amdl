@@ -8,11 +8,15 @@ export const front = [
 ];
 
 import backDownload from "./back/download.js";
+import convertPlaylist from "./back/convertPlaylist.js";
+import downloadSegment from "./back/downloadSegment.js";
 import getAlbumMetadata from "./back/getAlbumMetadata.js";
 import getPlaylistMetadata from "./back/getPlaylistMetadata.js";
 import getTrackMetadata from "./back/getTrackMetadata.js";
 export const back = [
     backDownload,
+    convertPlaylist,
+    downloadSegment,
     getAlbumMetadata,
     getPlaylistMetadata,
     getTrackMetadata

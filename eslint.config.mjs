@@ -1,33 +1,55 @@
 import typescriptEslint from "typescript-eslint";
+import stylistic from "@stylistic/eslint-plugin";
 
 export default [
+    ...typescriptEslint.configs.strict,
+    ...typescriptEslint.configs.stylistic,
+    {
+        plugins: {
+            "@typescript-eslint": typescriptEslint.plugin,
+            "@stylistic": stylistic
+        }
+    },
     {
         ignores: [
-            "**/dist/*",
-            "**/result/*",
-            "**/node_modules/*"
+            "**/dist/**",
+            "**/result/**",
+            "**/node_modules/**"
         ]
     },
-    ...typescriptEslint.configs.strict,
     {
         rules: {
-            "quotes": ["error", "double"],
-            "semi": ["error", "always"],
-            "comma-dangle": ["error", "never"],
+            "@stylistic/indent": ["error", 4],
+            "@stylistic/quotes": ["error", "double"],
+            "@stylistic/semi": ["error", "always"],
+            "@stylistic/comma-dangle": ["error", "never"],
 
-            // TODO: find a rule to make it so that relative imports are needed
-            // this is because those pass type checking, and fails at runtime
-            // not very typescript-coded (typescript shouldnt require runtime debugging, thats the point of it)
+            // TODO: make imports forced to be dynamic
 
-            // TODO: find a rule to make seperators on interfaces consistent
-            // it... let's just say... it pmo
+            "@stylistic/member-delimiter-style": [
+                "error",
+                {
+                    multilineDetection: "brackets",
+                    multiline: {
+                        delimiter: "semi",
+                        requireLast: true
+                    },
+                    singleline: {
+                        delimiter: "comma",
+                        requireLast: false
+                    }
+                }
+            ],
 
             "@typescript-eslint/explicit-function-return-type": "error",
             "@typescript-eslint/no-unused-vars": [
                 "error",
                 {
                     varsIgnorePattern: "^_",
-                    argsIgnorePattern: "^_"
+                    argsIgnorePattern: "^_",
+                    caughtErrorsIgnorePattern: "^_",
+                    caughtErrors: "all",
+                    destructuredArrayIgnorePattern: "^_"
                 }
             ]
         }
