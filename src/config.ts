@@ -20,7 +20,8 @@ const configSchema = z.object({
         ytdlp_path: z.string(),
         cache: z.object({
             directory: z.string(),
-            ttl: z.number().int().min(0)
+            database: z.string(),
+            file_ttl: z.number().int().min(0)
         }),
         api: z.object({
             language: z.string()
@@ -33,6 +34,7 @@ const envSchema = z.object({
     ITUA: z.string(),
     WIDEVINE_CLIENT_ID: z.string(),
     WIDEVINE_PRIVATE_KEY: z.string(),
+    MIGRATIONS_DIR: z.string().default("./drizzle"),
     VIEWS_DIR: z.string().default("./views"),
     PUBLIC_DIR: z.string().default("./public")
 });

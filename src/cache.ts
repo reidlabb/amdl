@@ -1,97 +1,131 @@
-import fs from "node:fs";
 import path from "node:path";
-import timeago from "timeago.js";
 import { config } from "./config.js";
+import { db } from "./database/index.js";
+import { fileCacheTable, keyCacheTable } from "./database/schema.js";
+import fsPromises from "fs/promises";
+import { and, eq } from "drizzle-orm";
 import * as log from "./log.js";
+import prettyBytes from "pretty-bytes";
 
-// DO NOT READ FURTHER INTO THIS FILE
-// COGNITIVE DISSONANCE WARNING
-
-// TODO: hourly cache reports
-// TODO: swap to sqlite
-// TODO: make async fs calls
-// TODO: rework EVERYTHING
-// TODO: refresh cache timer on download
-
-interface CacheEntry {
-    fileName: string;
-    expiry: number; // milliseconds, not seconds
+// try creating cache if it doesn't exist
+// a bit scuffed but that ok
+try {
+    log.debug(`ensuring cache directory "${config.downloader.cache.directory}" exists`);
+    await fsPromises.mkdir(config.downloader.cache.directory, { recursive: true });
+} catch (err) {
+    log.error("failed to create cache directory!");
+    log.error(err);
+    process.exit(1);
 }
 
-const cacheTtl = config.downloader.cache.ttl * 1000;
-const cacheFile = path.join(config.downloader.cache.directory, "cache.json");
+const fileTtl = config.downloader.cache.file_ttl * 1000;
+const timers = new Map<string, NodeJS.Timeout>();
 
-if (!fs.existsSync(config.downloader.cache.directory)) {
-    log.debug("cache directory not found, creating it");
-    fs.mkdirSync(config.downloader.cache.directory, { recursive: true });
+try {
+    let entriesCleared = 0;
+    let entriesClearedBytes = 0;
+    log.debug("cache cleanup and expiry timers starting");
+
+    await Promise.all((await db.select().from(fileCacheTable)).map(async ({ name, expiry }) => {
+        if (expiry < Date.now()) {
+            entriesCleared++;
+            entriesClearedBytes += (await fsPromises.stat(path.join(config.downloader.cache.directory, name))).size;
+            await dropFile(name);
+        } else {
+            await scheduleDeletion(name, expiry);
+        }
+    }));
+
+    log.debug("cache cleanup complete!");
+    log.debug(`cleared ${entriesCleared} entr${entriesCleared === 1 ? "y" : "ies"}, freeing up ${prettyBytes(entriesClearedBytes)}!`);
+} catch (err) {
+    log.error("failed to run cache cleanup!");
+    log.error(err);
 }
-if (!fs.existsSync(cacheFile)) {
-    log.debug("cache file not found, creating it");
-    fs.writeFileSync(cacheFile, JSON.stringify([]), { encoding: "utf-8" });
-}
 
-let cache = JSON.parse(fs.readFileSync(cacheFile, { encoding: "utf-8" })) as CacheEntry[];
-
-// TODO: change how this works
-// this is so uncomfy
-cache.push = function(...items: CacheEntry[]): number {
-    for (const entry of items) {
-        log.debug(`cache entry ${entry.fileName} added, expires ${timeago.format(entry.expiry)}`);
-        setTimeout(() => {
-            log.debug(`cache entry ${entry.fileName} expired, cleaning`);
-            removeCacheEntry(entry.fileName);
-            rewriteCache();
-        }, entry.expiry - Date.now());
+async function scheduleDeletion(name: string, expiry: number): Promise<void> {
+    if (timers.has(name)) {
+        clearTimeout(timers.get(name) as NodeJS.Timeout);
     }
 
-    return Array.prototype.push.apply(this, items);
-};
+    const timeout = setTimeout(async () => {
+        await dropFile(name);
+        timers.delete(name);
+    }, expiry - Date.now());
 
-function rewriteCache(): void {
-    // cache is in fact []. i checked
-    fs.writeFileSync(cacheFile, JSON.stringify(cache), { encoding: "utf-8" });
+    timers.set(name, timeout);
 }
 
-function removeCacheEntry(fileName: string): void {
-    cache = cache.filter((entry) => { return entry.fileName !== fileName; });
-    try {
-        fs.unlinkSync(path.join(config.downloader.cache.directory, fileName));
-    } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-            log.debug(`file for cache entry ${fileName} missing, dropping`);
-        } else {
-            log.error(`could not remove cache entry ${fileName}!`);
+async function dropFile(name: string): Promise<void> {
+    const size = (await fsPromises.stat(path.join(config.downloader.cache.directory, name))).size;
+    await fsPromises.unlink(path.join(config.downloader.cache.directory, name)).catch((err) => {
+        if (err.code !== "ENOENT") {
+            log.error(`failed to delete cached file ${name} for whatever reason!`);
+            log.error("manual removal may be necessary!");
             log.error(err);
         }
-    }
-}
-
-// clear cache entries that are expired
-// this is for when the program is killed when cache entries are present
-// those could expire while the program is not running, therefore not being cleaned
-let expiryLogPrinted = false;
-for (const entry of cache) {
-    if (entry.expiry < Date.now()) {
-        if (!expiryLogPrinted) { log.info("old expired cache entries are present, cleaning them"); }
-        expiryLogPrinted = true;
-        log.debug(`cache entry ${entry.fileName} expired ${timeago.format(entry.expiry)}; cleaning`);
-        removeCacheEntry(entry.fileName);
-        rewriteCache();
-    }
-}
-
-export function isCached(fileName: string): boolean {
-    const entry = cache.find((e) => { return e.fileName === fileName; });
-    const cached = entry !== undefined && entry.expiry > Date.now();
-    if (cached) { log.debug(`cache HIT for ${fileName}`); }
-    else { log.debug(`cache MISS for ${fileName}`); }
-    return cached;
-}
-
-export function addToCache(fileName: string): void {
-    cache.push({
-        fileName: fileName,
-        expiry: Date.now() + cacheTtl
     });
-    rewriteCache();
+
+    log.debug(`deleted file ${name} from cache, freeing up ${prettyBytes(size)}`);
+
+    await db.delete(fileCacheTable).where(eq(fileCacheTable.name, name));
+}
+
+export async function addFileToCache(fileName: string): Promise<void> {
+    const expiry = Date.now() + fileTtl;
+    const existing = await db.select().from(fileCacheTable).where(eq(fileCacheTable.name, fileName)).get();
+
+    if (existing) {
+        await db.update(fileCacheTable).set({ expiry: expiry }).where(eq(fileCacheTable.name, fileName));
+        await scheduleDeletion(fileName, expiry);
+    } else {
+        await db.insert(fileCacheTable).values({name: fileName, expiry: expiry });
+        await scheduleDeletion(fileName, expiry);
+    }
+}
+
+export async function isFileCached(fileName: string): Promise<boolean> {
+    const existing = await db.select().from(fileCacheTable).where(eq(fileCacheTable.name, fileName)).get();
+
+    if (existing !== undefined) {
+        await db.update(fileCacheTable).set({ expiry: Date.now() + fileTtl }).where(eq(fileCacheTable.name, fileName));
+        await scheduleDeletion(fileName, existing.expiry);
+
+        log.debug(`cache HIT for file ${fileName}, extending expiry`);
+        return true;
+    } else {
+        log.debug(`cache MISS for file ${fileName}`);
+        return false;
+    }
+}
+
+// TODO: add a key ttl? its probably not necessary but would be a nice to have
+// its pretty small anyway
+export async function addKeyToCache(songId: string, codec: string, decryptionKey: string): Promise<void> {
+    const existing = await db.select().from(keyCacheTable).where(and(
+        eq(keyCacheTable.songId, songId),
+        eq(keyCacheTable.codec, codec),
+        eq(keyCacheTable.decryptionKey, decryptionKey)
+    )).get();
+
+    if (existing) {
+        return;
+    } else {
+        await db.insert(keyCacheTable).values({ songId: songId, codec: codec, decryptionKey: decryptionKey });
+    }
+}
+
+export async function getKeyFromCache(songId: string, codec: string): Promise<string | undefined> {
+    const existing = await db.select().from(keyCacheTable).where(and(
+        eq(keyCacheTable.songId, songId),
+        eq(keyCacheTable.codec, codec)
+    )).get();
+
+    if (existing !== undefined) {
+        log.debug(`cache HIT for key of ${songId} (${codec})`);
+        return existing.decryptionKey;
+    } else {
+        log.debug(`cache MISS for key of ${songId} (${codec})`);
+        return undefined;
+    }
 }

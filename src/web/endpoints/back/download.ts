@@ -7,7 +7,8 @@ import { z } from "zod";
 import { validate } from "../../validate.js";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
 import { paths } from "../../openApi.js";
-import { formatSong } from "../../../downloader/format.js";
+import { formatSongForFs } from "../../../downloader/format.js";
+import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
 
 const router = express.Router();
 
@@ -39,44 +40,29 @@ router.get(path, async (req, res, next) => {
 
         const codecType = new CodecType(codec);
 
-        if (codecType.regularOrWebplayback === "regular") {
-            const regularCodec = codecType.codecType as RegularCodecType; // safe cast, zod
-            const trackMetadata = await appleMusicApi.getSong(id);
-            const trackAttributes = trackMetadata.data[0].attributes;
-            const streamInfo = await StreamInfo.fromTrackMetadata(trackAttributes, regularCodec);
+        const trackMetadata = await appleMusicApi.getSong(id);
+        const trackAttributes = trackMetadata.data[0].attributes;
+        const streamInfo = await (codecType.regularOrWebplayback === "regular"
+            ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
+        );
 
-            if (streamInfo.widevinePssh !== undefined) {
-                const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-
-                const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, regularCodec, trackMetadata);
-                const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
-                const fileName = formatSong(trackAttributes) + fileExt;
-
-                res.attachment(fileName);
-                res.sendFile(filePath, { root: "." });
-            } else {
-                throw new Error("no decryption key found for regular codec! this is typical. don't fret!");
-            }
-        } else if (codecType.regularOrWebplayback === "webplayback") {
-            const webplaybackCodec = codecType.codecType as WebplaybackCodecType; // safe cast, zod
-            const webplaybackResponse = await appleMusicApi.getWebplayback(id);
-            const trackMetadata = await appleMusicApi.getSong(id);
-            const trackAttributes = trackMetadata.data[0].attributes;
-            const streamInfo = await StreamInfo.fromWebplayback(webplaybackResponse, webplaybackCodec);
-
-            if (streamInfo.widevinePssh !== undefined) {
-                const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-
-                const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, webplaybackCodec, trackMetadata);
-                const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
-                const fileName = formatSong(trackAttributes) + fileExt;
-
-                res.attachment(fileName);
-                res.sendFile(filePath, { root: "." });
-            } else {
-                throw new Error("no decryption key found for web playback! this should not happen..");
-            }
+        if (streamInfo.widevinePssh === undefined) {
+            if (codecType.regularOrWebplayback === "regular") { throw new Error("failed to get widevine pssh, this is typical"); }
+            else { throw new Error("failed to get widevine pssh for web playback, this should not happen.."); }
         }
+
+        const decryptionKey =
+            await getKeyFromCache(id, codecType.codecType) ||
+            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
+        await addKeyToCache(id, codecType.codecType, decryptionKey);
+
+        const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);
+        const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
+        const fileName = formatSongForFs(trackAttributes) + fileExt;
+
+        res.attachment(fileName);
+        res.sendFile(filePath, { root: "." });
     } catch (err) {
         next(err);
     }

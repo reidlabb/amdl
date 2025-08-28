@@ -11,12 +11,12 @@ const schema = z.object({
     })
 });
 
-router.get("/download", async (req, res, next) => {
+router.get("/downloadAlbum", async (req, res, next) => {
     try {
         const { id } = (await validate(req, schema)).query;
 
-        res.render("download", {
-            title: "download track",
+        res.render("downloadAlbum", {
+            title: "download album",
             codecs: config.server.frontend.displayed_codecs,
             id: id
         });

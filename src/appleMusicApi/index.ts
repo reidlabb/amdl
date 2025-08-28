@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
 import { ampApiUrl, appleMusicHomepageUrl, licenseApiUrl, webplaybackApiUrl } from "../constants/urls.js";
-import type { GetPlaylistResponse, GetSongResponse, SearchResponse } from "./types/responses.js";
+import type { GetAlbumResponse, GetPlaylistResponse, GetSongResponse, SearchResponse } from "./types/responses.js";
 import type { AlbumAttributesExtensionTypes, AnyAttributesExtensionTypes, SongAttributesExtensionTypes } from "./types/extensions.js";
 import { getToken } from "./token.js";
 import { config, env } from "../config.js";
@@ -41,8 +41,8 @@ export default class AppleMusicApi {
         id: string,
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
-    ): Promise<GetSongResponse<T, U>> {
-        return (await this.http.get<GetSongResponse<T, U>>(`/v1/catalog/${this.storefront}/albums/${id}`, {
+    ): Promise<GetAlbumResponse<T, U>> {
+        return (await this.http.get<GetAlbumResponse<T, U>>(`/v1/catalog/${this.storefront}/albums/${id}`, {
             params: {
                 extend: extend.join(","),
                 include: relationships.join(",")

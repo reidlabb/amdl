@@ -1,19 +1,19 @@
-import { createWriteStream } from "node:fs";
-import type { GetSongResponse } from "appleMusicApi/types/responses.js";
-import path from "node:path";
-import { config } from "../config.js";
-import { pipeline } from "node:stream/promises";
-import { addToCache, isCached } from "../cache.js";
+import type { GetSongResponse } from "../appleMusicApi/types/responses.js";
+import { stripAlbumGarbage } from "./format.js";
+import { downloadAlbumCover } from "./index.js";
+import type { AlbumAttributes, SongAttributes } from "../appleMusicApi/types/attributes.js";
 
 // TODO: simply add more fields. ha!
 // TODO: add lyrics (what format??)
+// TODO: where it does file name formatting to hit caches, i think we should normalize this throughout files in a function
 export class FileMetadata {
+    private readonly trackAttributes: SongAttributes<[]>;
+    private readonly albumAttributes: AlbumAttributes<[]>;
     public readonly artist: string;
     public readonly title: string;
     public readonly album: string;
     public readonly albumArtist: string;
     public readonly isPartOfCompilation: boolean;
-    public readonly artwork: string;
     public readonly track?: number;
     public readonly disc?: number;
     public readonly date?: string;
@@ -21,13 +21,14 @@ export class FileMetadata {
     public readonly isrc?: string;
     public readonly composer?: string;
 
-    constructor(
+    private constructor(
+        trackAttributes: SongAttributes<[]>,
+        albumAttributes: AlbumAttributes<[]>,
         artist: string,
         title: string,
         album: string,
         albumArtist: string,
         isPartOfCompilation: boolean,
-        artwork: string,
         track?: number,
         disc?: number,
         date?: string,
@@ -35,12 +36,13 @@ export class FileMetadata {
         isrc?: string,
         composer?: string
     ) {
+        this.trackAttributes = trackAttributes;
+        this.albumAttributes = albumAttributes;
         this.artist = artist;
         this.title = title;
-        this.album = album.replace(/- (EP|Single)$/, "").trim();
+        this.album = stripAlbumGarbage(album);
         this.albumArtist = albumArtist;
         this.isPartOfCompilation = isPartOfCompilation;
-        this.artwork = artwork;
         this.track = track;
         this.disc = disc;
         this.date = date;
@@ -53,17 +55,14 @@ export class FileMetadata {
         const trackAttributes = trackMetadata.data[0].attributes;
         const albumAttributes = trackMetadata.data[0].relationships.albums.data[0].attributes;
 
-        const artworkUrl = trackAttributes.artwork.url
-            .replace("{w}", trackAttributes.artwork.width.toString())
-            .replace("{h}", trackAttributes.artwork.height.toString());
-
         return new FileMetadata(
+            trackAttributes,
+            albumAttributes,
             trackAttributes.artistName,
             trackAttributes.name,
             albumAttributes.name,
             albumAttributes.artistName,
             albumAttributes.isCompilation,
-            artworkUrl,
             trackAttributes.trackNumber,
             trackAttributes.discNumber,
             trackAttributes.releaseDate,
@@ -73,32 +72,12 @@ export class FileMetadata {
         );
     }
 
-    public async setupFfmpegInputs(encryptedPath: string): Promise<string[]> {
-        // url is in a weird format
-        // only things we care about is the uuid and file extension i think?
-        // i dont wanna use the original file name because what if. what if theres a collision
-        const extension = this.artwork.slice(this.artwork.lastIndexOf(".") + 1);
-        const uuid = this.artwork.split("/").at(-3);
-
-        if (uuid === undefined) { throw new Error("could not get uuid from artwork url!"); }
-
-        const imageFileName = `${uuid}.${extension}`;
-        const imagePath = path.join(config.downloader.cache.directory, imageFileName);
-
-        if (!isCached(imageFileName)) {
-            const response = await fetch(this.artwork);
-
-            if (!response.ok) { throw new Error(`failed to fetch artwork: ${response.status}`); }
-            if (!response.body) { throw new Error("no response body for artwork!"); }
-
-            await pipeline(response.body as ReadableStream, createWriteStream(imagePath));
-
-            addToCache(imageFileName);
-        }
+    public async setupFfmpegInputs(audioInput: string): Promise<string[]> {
+        const albumCover = await downloadAlbumCover(this.albumAttributes);
 
         return [
-            "-i", encryptedPath,
-            "-i", imagePath,
+            "-i", audioInput,
+            "-i", albumCover,
             "-map", "0",
             "-map", "1",
             "-disposition:v", "attached_pic",

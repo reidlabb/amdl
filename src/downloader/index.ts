@@ -1,46 +1,35 @@
 import { config } from "../config.js";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { addToCache, isCached } from "../cache.js";
+import { addFileToCache, isFileCached } from "../cache.js";
 import type { RegularCodecType, WebplaybackCodecType } from "./codecType.js";
 import type { GetSongResponse } from "../appleMusicApi/types/responses.js";
 import { FileMetadata } from "./fileMetadata.js";
 import { createDecipheriv } from "node:crypto";
-import * as log from "../log.js";
+import type { AlbumAttributes } from "../appleMusicApi/types/attributes.js";
+import { pipeline } from "node:stream/promises";
+import { createWriteStream } from "node:fs";
 
 export async function downloadSongFile(streamUrl: string, decryptionKey: string, songCodec: RegularCodecType | WebplaybackCodecType, songResponse: GetSongResponse<[], ["albums"]>): Promise<string> {
-    log.debug("downloading song file and hopefully decrypting it");
-    log.debug({ streamUrl: streamUrl, songCodec: songCodec });
-
     let baseOutputName = streamUrl.match(/(?:.*\/)\s*(\S*?)[.?]/)?.[1];
     if (!baseOutputName) { throw new Error("could not get base output name from stream url!"); }
     baseOutputName += `_${songCodec}`;
-    const encryptedName = baseOutputName + "_enc.mp4";
-    const encryptedPath = path.join(config.downloader.cache.directory, encryptedName);
     const decryptedName = baseOutputName + ".m4a";
     const decryptedPath = path.join(config.downloader.cache.directory, decryptedName);
 
-    if ( // TODO: remove check for encrypted file/cache for encrypted?
-        isCached(encryptedName) &&
-        isCached(decryptedName)
-    ) { return decryptedPath; }
+    if (await isFileCached(decryptedName)) { return decryptedPath; }
 
-    await new Promise<void>((res, rej) => {
-        const child = spawn(config.downloader.ytdlp_path, [
-            "--quiet",
-            "--no-warnings",
-            "--allow-unplayable-formats",
-            "--fixup", "never",
-            "--paths", config.downloader.cache.directory,
-            "--output", encryptedName,
-            streamUrl
-        ]);
-        child.on("error", (err) => { rej(err); });
-        child.stderr.on("data", (data) => { rej(new Error(data.toString().trim())); });
-        child.on("exit", () => { res(); });
-    });
-
-    addToCache(encryptedName);
+    const ytdlp = spawn(config.downloader.ytdlp_path, [
+        "--quiet",
+        "--no-warnings",
+        "--allow-unplayable-formats",
+        "--fixup", "never",
+        "--paths", config.downloader.cache.directory,
+        "--output", "-",
+        streamUrl
+    ], { stdio: ["ignore", "pipe", "pipe"] });
+    ytdlp.on("error", (err) => { throw err; });
+    ytdlp.stderr.on("data", (data) => { throw new Error(data.toString().trim()); });
 
     const fileMetadata = FileMetadata.fromSongResponse(songResponse);
 
@@ -49,17 +38,18 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
             "-loglevel", "error",
             "-y",
             "-decryption_key", decryptionKey,
-            ...await fileMetadata.setupFfmpegInputs(encryptedPath),
+            ...await fileMetadata.setupFfmpegInputs("pipe:0"),
             ...await fileMetadata.toFfmpegArgs(),
             "-movflags", "+faststart",
             decryptedPath
-        ]);
+        ], { stdio: ["pipe", "pipe", "pipe"] });
+        ytdlp.stdout.pipe(child.stdin);
         child.on("error", (err) => { rej(err); });
         child.stderr.on("data", (data) => { rej(new Error(data.toString().trim())); });
         child.on("exit", () => { res(); } );
     });
 
-    addToCache(decryptedName);
+    await addFileToCache(decryptedName);
 
     return decryptedPath;
 }
@@ -69,11 +59,7 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
 // TODO: less mem alloc/access
 // TODO: use actual atom scanning. what if the magic bytes appear in a sample
 export async function fetchAndDecryptStreamSegment(segmentUrl: string, decryptionKey: string, fetchLength: number, offset: number): Promise<Uint8Array> {
-    log.debug("downloading and hopefully decrypting stream segment");
-    log.debug({ segmentUrl: segmentUrl, offset: offset, fetchLength: fetchLength });
-
     const response = await fetch(segmentUrl, { headers: { "range": `bytes=${offset}-${offset + fetchLength - 1}` }});
-
     const file = new Uint8Array(await response.arrayBuffer());
 
     // this translates to "moof"
@@ -120,6 +106,31 @@ export async function fetchAndDecryptStreamSegment(segmentUrl: string, decryptio
     }
 
     return file;
+}
+
+export async function downloadAlbumCover(albumAttributes: AlbumAttributes<[]>): Promise<string> {
+    const url = albumAttributes.artwork.url
+        .replace("{w}", albumAttributes.artwork.width.toString())
+        .replace("{h}", albumAttributes.artwork.height.toString());
+    const name = albumAttributes.playParams?.id;
+    const extension = url.slice(url.lastIndexOf(".") + 1);
+
+    if (!name) { throw new Error("no artwork name found! this may indicate the album isnt acessable w/ your subscription!"); }
+
+    const imageFileName = `${name}.${extension}`;
+    const imagePath = path.join(config.downloader.cache.directory, imageFileName);
+
+    if (await isFileCached(imageFileName) === false) {
+        const response = await fetch(url);
+
+        if (!response.ok) { throw new Error(`failed to fetch artwork: ${response.status}`); }
+        if (!response.body) { throw new Error("no response body for artwork!"); }
+
+        await pipeline(response.body as ReadableStream, createWriteStream(imagePath));
+        await addFileToCache(imageFileName);
+    }
+
+    return imagePath;
 }
 
 interface IvValue {

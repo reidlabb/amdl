@@ -1,5 +1,9 @@
 {{#if id}}
-    <a href="/download?id={{id}}">dl</a>
+    {{#if isAlbum}}
+        <a href="/downloadAlbum?id={{id}}">dl</a>
+    {{else}}
+        <a href="/download?id={{id}}">dl</a>
+    {{/if}}
 {{else}}
     <span class="light">dl</span>
 {{/if}}

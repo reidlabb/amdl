@@ -25,7 +25,7 @@
           # uncomment this and let the build fail, then get the current hash
           # very scuffed but endorsed!
           # npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          npmDepsHash = "sha256-lvueqcSBjtt9RSMwq2NWCAVT0NrZwDmhEYkjtdOs7js=";
+          npmDepsHash = "sha256-11AayHpPu7ocBPRB5k4SU7b99Aqc/dufAy2Yg5oPvGE=";
 
           nativeBuildInputs = with pkgs; [ makeWrapper ];
 
@@ -35,12 +35,13 @@
             runHook preInstall
 
             mkdir -p $out
-            mv node_modules dist views public $out/
+            mv dist drizzle public views node_modules $out/
             makeWrapper ${pkgs.nodejs-slim}/bin/node $out/bin/amdl \
               --prefix PATH : ${makeBinPath buildInputs} \
               --add-flags "$out/dist/src/index.js" \
-              --set VIEWS_DIR $out/views \
+              --set MIGRATIONS_DIR $out/drizzle \
               --set PUBLIC_DIR $out/public \
+              --set VIEWS_DIR $out/views \
               --set NODE_ENV production
 
             runHook postInstall

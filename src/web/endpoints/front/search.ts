@@ -42,6 +42,8 @@ router.get("/", async (req, res, next) => {
                     name: name,
                     artists: [artistName],
                     cover: cover,
+                    id: result.attributes.playParams?.id,
+                    isAlbum: true,
                     tracks: tracks.map((track) => {
                         const { artistName, name, durationInMillis, discNumber, trackNumber } = track.attributes;
 
@@ -52,7 +54,8 @@ router.get("/", async (req, res, next) => {
                             artists: [artistName],
                             duration: durationInMillis,
                             cover: cover,
-                            id: track.attributes.playParams?.id
+                            id: track.attributes.playParams?.id,
+                            isAlbum: false
                         };
                     })
                 };

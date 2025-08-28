@@ -8,7 +8,7 @@ port = 2000
 # max 25, min 5
 search_count = 5
 # displayed codecs, recommended to use default
-# see src/downloader/index.ts for a list of codecs
+# see src/constants/codecs.ts for a list of codecs
 displayed_codecs = ["aac_legacy", "aac_he_legacy"]
 
 [downloader]
@@ -23,8 +23,10 @@ ytdlp_path = "yt-dlp"
 # where to store downloaded files (music, lyrics, etc.)
 # this directory will be created if it does not exist
 directory = "cache"
+# where to store the database file
+database = "file:cache/cache.sqlite"
 # how long to keep downloaded files (in seconds)
-ttl = 3600 # (1 hour)
+file_ttl = 3600 # (1 hour)
 
 [downloader.api]
 # two letter language code (ISO 639-1), followed by a dash (-) and a two letter country code (ISO 3166-1 alpha-2)

@@ -16,7 +16,7 @@ thank you to [gamdl](https://github.com/glomatico/gamdl) for inspiring this proj
 
 `WIDEVINE_PRIVATE_KEY` is essentially the same process of obtainment, you'll get it from the same guide!! i'm not sure how to easily find one of these on the web, but i'm sure you end users (user count: 0 (<img src="./docs/true.png" alt="robert downey jr. true image" height="13">)) can pull through. this is also in base64 (`cat private_key.pem | base64 -w 0`)
 
-`PUBLIC_DIR` and `VIEWS_DIR` should typically not need to be set by the user if using this repository as the working directory. blank values will result in simply `views` and `public` being grabbed from the cwd, which also so happens to be the default in [`.env.example`](./.env.example). set this manually to your own value if you get full runtime errors when accessing pages relating to templates being missing, assets having unexpected 404 issues, etc. this value is also recommended for packagers, to prevent the users having to copy over views and public--see how the nix build works!
+`MIGRATIONS_DIR`, `PUBLIC_DIR`, and `VIEWS_DIR` should typically not need to be set by the user if using this repository as the working directory. blank values will result in simply `drizzle`, `views`, and `public` being grabbed from the cwd, which also so happens to be the default in [`.env.example`](./.env.example). set this manually to your own value if you get full runtime errors when accessing pages relating to templates being missing, assets having unexpected 404 issues, etc. this value is also recommended for packagers, to prevent the users having to copy over views and public--see how the nix build works!
 
 ### config
 
@@ -33,6 +33,14 @@ after configuring, it's just as easy as running `npm run build` and running the 
 a system module is provided for your convenience, and the main output is `nixosModules.default`
 
 after importing this module, the option `services.amdl` will show up, which is documented in [`flake.nix`](./flake.nix) somewhat well. everything under the `config` tree follows the `config.toml` well, along with everything under the `env` tree. defaults are provided for everything that isn't the ITUA inside of the env section. make sure to set those!!
+
+#### nginx information
+
+a decent amount of nginx setups (and ones on nixos using `recommendedProxySettings`) have proxy buffering on, i recommend turning that off (if the whole file isnt downloaded before the read timeout, then it will just drop the file)
+
+```nginx
+proxy_buffering off;
+```
 
 ## limitations / the formats
 

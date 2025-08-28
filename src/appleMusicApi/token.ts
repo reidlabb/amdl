@@ -27,7 +27,7 @@ export async function getToken(baseUrl: string): Promise<string> {
         throw new Error("could not find match for the api token in the index javascript file");
     }
 
-    log.debug("got api token");
+    log.info("got api token");
 
     return token;
 }

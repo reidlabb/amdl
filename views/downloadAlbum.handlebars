@@ -1,0 +1,9 @@
+<form class="download-form" action="/api/downloadAlbum" method="get">
+    <select name="codec">
+        {{#each codecs as |codec|}}
+            <option value="{{codec}}">{{codec}}</option>
+        {{/each}}
+    </select>
+    <input type="hidden" name="id" value="{{id}}">
+    <input type="submit" value="download!">
+</form>

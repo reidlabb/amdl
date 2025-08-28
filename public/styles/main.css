@@ -123,10 +123,13 @@ footer {
     width: 100%;
 }
 .result-info {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto;
+    grid-auto-flow: row;
     align-items: center;
-    gap: 1em;
+    gap: 0 1em;
+    padding-right: 1em;
 }
 .result-info img {
     width: 4em;

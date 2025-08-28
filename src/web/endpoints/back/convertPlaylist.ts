@@ -4,10 +4,7 @@ import z from "zod";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
 import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import StreamInfo from "../../../downloader/streamInfo.js";
-import hls from "parse-hls";
 import { paths } from "../../openApi.js";
-
-type M3u8 = ReturnType<typeof hls.default.parse>;
 
 const router = express.Router();
 
@@ -33,35 +30,17 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
-
         const codecType = new CodecType(codec);
 
-        let m3u8Parsed: M3u8;
-        let streamUrl: string;
+        const trackMetadata = await appleMusicApi.getSong(id);
+        const trackAttributes = trackMetadata.data[0].attributes;
+        const streamInfo = await (codecType.regularOrWebplayback === "regular"
+            ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
+        );
 
-        if (codecType.regularOrWebplayback === "regular") {
-            const regularCodec = codecType.codecType as RegularCodecType; // safe cast, zod
-            const trackMetadata = await appleMusicApi.getSong(id);
-            const trackAttributes = trackMetadata.data[0].attributes;
-            const streamInfo = await StreamInfo.fromTrackMetadata(trackAttributes, regularCodec);
-
-            m3u8Parsed = streamInfo.streamParsed;
-            streamUrl = streamInfo.streamUrl;
-        } else if (codecType.regularOrWebplayback === "webplayback") {
-            const webplaybackCodec = codecType.codecType as WebplaybackCodecType; // safe cast, zod
-            const webplaybackResponse = await appleMusicApi.getWebplayback(id);
-            const streamInfo = await StreamInfo.fromWebplayback(webplaybackResponse, webplaybackCodec);
-
-            m3u8Parsed = streamInfo.streamParsed;
-            streamUrl = streamInfo.streamUrl;
-        } else {
-            // TODO: this is unreachable
-            // typescript doesn't think so
-            // i think its because of the "let"s why we need this
-            // fucks up our planned de-dupe on every use of `regularOrWebplayback`
-            // damn !
-            throw new Error("invalid codec type!");
-        }
+        const m3u8Parsed = streamInfo.streamParsed;
+        const streamUrl = streamInfo.streamUrl;
 
         const ogMp4Name = m3u8Parsed.segments[0].uri;
         const ogMp4Url = streamUrl.substring(0, streamUrl.lastIndexOf("/")) + "/" + ogMp4Name;

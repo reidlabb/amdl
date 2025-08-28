@@ -7,6 +7,7 @@ import StreamInfo from "../../../downloader/streamInfo.js";
 import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
 import { fetchAndDecryptStreamSegment } from "../../../downloader/index.js";
+import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
 
 const router = express.Router();
 
@@ -54,40 +55,28 @@ router.get(path, async (req, res, next) => {
 
         const codecType = new CodecType(codec);
 
-        if (codecType.regularOrWebplayback === "regular") {
-            const regularCodec = codecType.codecType as RegularCodecType; // safe cast, zod
-            const trackMetadata = await appleMusicApi.getSong(id);
-            const trackAttributes = trackMetadata.data[0].attributes;
-            const streamInfo = await StreamInfo.fromTrackMetadata(trackAttributes, regularCodec);
+        const trackMetadata = await appleMusicApi.getSong(id);
+        const trackAttributes = trackMetadata.data[0].attributes;
+        const streamInfo = await (codecType.regularOrWebplayback === "regular"
+            ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
+        );
 
-            if (streamInfo.widevinePssh !== undefined) {
-                const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const file = await fetchAndDecryptStreamSegment(originalMp4, decryptionKey, end - start + 1, start);
-
-                res.setHeader("Content-Type", "application/mp4");
-                res.setHeader("Content-Range", `bytes ${start}-${end}/*`);
-                res.setHeader("Accept-Ranges", "bytes");
-                res.status(206).send(file);
-            } else {
-                throw new Error("no decryption key found for regular codec! this is typical. don't fret!");
-            }
-        } else if (codecType.regularOrWebplayback === "webplayback") {
-            const webplaybackCodec = codecType.codecType as WebplaybackCodecType; // safe cast, zod
-            const webplaybackResponse = await appleMusicApi.getWebplayback(id);
-            const streamInfo = await StreamInfo.fromWebplayback(webplaybackResponse, webplaybackCodec);
-
-            if (streamInfo.widevinePssh !== undefined) {
-                const decryptionKey = await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
-                const file = await fetchAndDecryptStreamSegment(originalMp4, decryptionKey, end - start + 1, start);
-
-                res.setHeader("Content-Type", "application/mp4");
-                res.setHeader("Content-Range", `bytes ${start}-${end}/*`);
-                res.setHeader("Accept-Ranges", "bytes");
-                res.status(206).send(file);
-            } else {
-                throw new Error("no decryption key found for web playback! this should not happen..");
-            }
+        if (streamInfo.widevinePssh === undefined) {
+            if (codecType.regularOrWebplayback === "regular") { throw new Error("failed to get widevine pssh, this is typical"); }
+            else { throw new Error("failed to get widevine pssh for web playback, this should not happen.."); }
         }
+
+        const decryptionKey =
+            await getKeyFromCache(id, codecType.codecType) ||
+            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
+        await addKeyToCache(id, codecType.codecType, decryptionKey);
+
+        const file = await fetchAndDecryptStreamSegment(originalMp4, decryptionKey, end - start + 1, start);
+        res.setHeader("Content-Type", "application/mp4");
+        res.setHeader("Content-Range", `bytes ${start}-${end}/*`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.status(206).send(file);
     } catch (err) {
         next(err);
     }
