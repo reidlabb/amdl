@@ -26,15 +26,20 @@ try {
     let entriesClearedBytes = 0;
     log.debug("cache cleanup and expiry timers starting");
 
-    await Promise.all((await db.select().from(fileCacheTable)).map(async ({ name, expiry }) => {
+    const results = await Promise.all((await db.select().from(fileCacheTable)).map(async ({ name, expiry }) => {
         if (expiry < Date.now()) {
-            entriesCleared++;
-            entriesClearedBytes += (await fsPromises.stat(path.join(config.downloader.cache.directory, name))).size;
-            await dropFile(name);
+            return await dropFile(name);
         } else {
             await scheduleDeletion(name, expiry);
         }
     }));
+
+    for (const result of results) {
+        if (result !== undefined) {
+            entriesCleared += 1;
+            entriesClearedBytes += result;
+        }
+    }
 
     log.debug("cache cleanup complete!");
     log.debug(`cleared ${entriesCleared} entr${entriesCleared === 1 ? "y" : "ies"}, freeing up ${prettyBytes(entriesClearedBytes)}!`);
@@ -56,19 +61,26 @@ async function scheduleDeletion(name: string, expiry: number): Promise<void> {
     timers.set(name, timeout);
 }
 
-async function dropFile(name: string): Promise<void> {
-    const size = (await fsPromises.stat(path.join(config.downloader.cache.directory, name))).size;
-    await fsPromises.unlink(path.join(config.downloader.cache.directory, name)).catch((err) => {
-        if (err.code !== "ENOENT") {
-            log.error(`failed to delete cached file ${name} for whatever reason!`);
-            log.error("manual removal may be necessary!");
-            log.error(err);
-        }
-    });
+// TODO: add behavior toggle: should we keep it in the database on failure or not ??
+// current behavior: delete from db first, then try deleting files
+// this is good if manual cleanup was already done (we can then ignore ENOENT)
+// bad if they change the permissions instead of manual removal
+async function dropFile(name: string): Promise<number | undefined> {
+    try {
+        await db.delete(fileCacheTable).where(eq(fileCacheTable.name, name));
+        const size = (await fsPromises.stat(path.join(config.downloader.cache.directory, name))).size;
+        await fsPromises.unlink(path.join(config.downloader.cache.directory, name));
 
-    log.debug(`deleted file ${name} from cache, freeing up ${prettyBytes(size)}`);
+        log.debug(`deleted file ${name} from cache, freeing up ${prettyBytes(size)}`);
 
-    await db.delete(fileCacheTable).where(eq(fileCacheTable.name, name));
+        return size;
+    } catch (err) {
+        if (err instanceof Error && err.message.includes("ENOENT")) { return; }
+
+        log.error(`failed to delete cached file ${name} for whatever reason!`);
+        log.error("manual removal may be necessary!");
+        log.error(err);
+    }
 }
 
 export async function addFileToCache(fileName: string): Promise<void> {
