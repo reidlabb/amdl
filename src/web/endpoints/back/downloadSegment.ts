@@ -46,8 +46,6 @@ paths[path] = {
     }
 };
 
-// TODO: cache the decryption key for a while, so we don't have to fetch it every time
-// the way we could do that is store track id + codec mapped to a decryption key (in memory? for like how long? maybe have an expiry?)
 router.get(path, async (req, res, next) => {
     try {
         const { id, originalMp4, codec } = (await validate(req, schema)).query;
@@ -68,7 +66,7 @@ router.get(path, async (req, res, next) => {
         }
 
         const decryptionKey =
-            await getKeyFromCache(id, codecType.codecType) ||
+            await getKeyFromCache(id, codecType.codecType) ??
             await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
         await addKeyToCache(id, codecType.codecType, decryptionKey);
 

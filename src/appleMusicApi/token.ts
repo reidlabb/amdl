@@ -1,3 +1,4 @@
+import { request } from "undici";
 import * as log from "../log.js";
 
 // basically, i don't want to pay 100 dollars for a dev token to the official API
@@ -5,8 +6,8 @@ import * as log from "../log.js";
 // thanks to this guy complaining to apple for telling us this! https://developer.apple.com/forums/thread/702228
 // apple says "any other method may be blocked at any time" (posted in mar 2022, most likely not happening)
 export async function getToken(baseUrl: string): Promise<string> {
-    const indexResponse = await fetch(baseUrl);
-    const indexBody = await indexResponse.text();
+    const indexResponse = await request(baseUrl);
+    const indexBody = await indexResponse.body.text();
 
     const jsRegex = /\/assets\/index-legacy-[^/]+\.js/;
     const jsPath = indexBody.match(jsRegex)?.[0];
@@ -15,8 +16,8 @@ export async function getToken(baseUrl: string): Promise<string> {
         throw new Error("could not match for the index javascript file!");
     }
 
-    const jsResponse = await fetch(baseUrl + jsPath);
-    const jsBody = await jsResponse.text();
+    const jsResponse = await request(baseUrl + jsPath);
+    const jsBody = await jsResponse.body.text();
 
     // the token is actually a base64-encoded JWT
     // `eyJh` === `{"a`, which is the beginning of a JWT (a is the start of alg)

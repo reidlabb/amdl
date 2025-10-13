@@ -1,4 +1,3 @@
-import axios, { type AxiosInstance } from "axios";
 import { ampApiUrl, appleMusicHomepageUrl, licenseApiUrl, webplaybackApiUrl } from "../constants/urls.js";
 import type { GetAlbumResponse, GetPlaylistResponse, GetSongResponse, SearchResponse } from "./types/responses.js";
 import type { AlbumAttributesExtensionTypes, AnyAttributesExtensionTypes, SongAttributesExtensionTypes } from "./types/extensions.js";
@@ -6,10 +5,12 @@ import { getToken } from "./token.js";
 import { config, env } from "../config.js";
 import { HttpException } from "../web/index.js";
 import type { RelationshipTypes } from "./types/relationships.js";
+import { fetch, request } from "undici";
 
 export default class AppleMusicApi {
     private storefront: string;
-    private http: AxiosInstance;
+    private headers: Headers;
+    private params: URLSearchParams;
 
     public constructor(
         storefront: string,
@@ -17,21 +18,58 @@ export default class AppleMusicApi {
         mediaUserToken: string
     ) {
         this.storefront = storefront;
-        this.http = axios.create({
-            baseURL: ampApiUrl
-        });
 
-        this.http.defaults.headers.common["Origin"] = appleMusicHomepageUrl;
-        this.http.defaults.headers.common["Media-User-Token"] = mediaUserToken;
+        this.headers = new Headers();
+        this.headers.set("Origin", appleMusicHomepageUrl);
+        this.headers.set("Media-User-Token", mediaUserToken);
+        this.headers.set("x-apple-music-user-token", mediaUserToken);
+        this.headers.set("x-apple-renewal", "true");
 
-        // yeah dude. awesome
-        // https://stackoverflow.com/a/54636780
-        this.http.defaults.params = {};
-        this.http.defaults.params["l"] = language;
+        this.params = new URLSearchParams();
+        this.params.set("l", language);
     }
 
     public async login(): Promise<void> {
-        this.http.defaults.headers.common["Authorization"] = `Bearer ${await getToken(appleMusicHomepageUrl)}`;
+        this.headers.set("Authorization", `Bearer ${await getToken(appleMusicHomepageUrl)}`);
+    }
+
+    // TODO: dedupe these functions
+    // TODO: also make their param/body/header stuff more modular
+    // please!!!!!
+    private async get<
+        T
+    > (link: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
+        const url = new URL(link);
+        const urlParams = new URLSearchParams(this.params);
+        for (const entry of Object.entries(params)) { urlParams.set(entry[0], entry[1].toString()); }
+        url.search = urlParams.toString();
+
+        const response = await request(url, { headers: this.headers });
+        const json = await response.body.json();
+        return json as T;
+    }
+
+    // TODO: discover why it works when its fetch but not request
+    // what i mean by "works" is it doesn't return an error upstream that i can't replicate in cURL
+    // i'm so confused mannnn
+    private async post<
+        T
+    > (link: string, data: Record<string, string | number | boolean> = {}): Promise<T> {
+        const url = new URL(link);
+        const urlParams = new URLSearchParams(this.params);
+        url.search = urlParams.toString();
+
+        const headers = new Headers(this.headers);
+        headers.set("Content-Type", "application/json");
+
+        const response = await fetch(url, {
+            method: "POST",
+            body: JSON.stringify(data),
+            headers: headers
+        });
+
+        const json = await response.json();
+        return json as T;
     }
 
     async getAlbum<
@@ -42,12 +80,10 @@ export default class AppleMusicApi {
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<GetAlbumResponse<T, U>> {
-        return (await this.http.get<GetAlbumResponse<T, U>>(`/v1/catalog/${this.storefront}/albums/${id}`, {
-            params: {
-                extend: extend.join(","),
-                include: relationships.join(",")
-            }
-        })).data;
+        return await this.get<GetAlbumResponse<T, U>>(`${ampApiUrl}/v1/catalog/${this.storefront}/albums/${id}`, {
+            extend: extend.join(","),
+            include: relationships.join(",")
+        });
     }
 
     // TODO: make it so you can get more than the first 100 tracks
@@ -61,12 +97,10 @@ export default class AppleMusicApi {
         extend: T = [] as never as T,
         relationships: U = ["tracks"] as U
     ): Promise<GetPlaylistResponse<T, U>> {
-        return (await this.http.get<GetPlaylistResponse<T, U>>(`/v1/catalog/${this.storefront}/playlists/${id}`, {
-            params: {
-                extend: extend.join(","),
-                include: relationships.join(",")
-            }
-        })).data;
+        return await this.get<GetPlaylistResponse<T, U>>(`${ampApiUrl}/v1/catalog/${this.storefront}/playlists/${id}`, {
+            extend: extend.join(","),
+            include: relationships.join(",")
+        });
     }
 
     async getSong<
@@ -80,12 +114,10 @@ export default class AppleMusicApi {
         extend: T = ["extendedAssetUrls"] as T,
         relationships: U = ["albums"] as U
     ): Promise<GetSongResponse<T, U>> {
-        return (await this.http.get<GetSongResponse<T, U>>(`/v1/catalog/${this.storefront}/songs/${id}`, {
-            params: {
-                extend: extend.join(","),
-                include: relationships.join(",")
-            }
-        })).data;
+        return await this.get<GetSongResponse<T, U>>(`${ampApiUrl}/v1/catalog/${this.storefront}/songs/${id}`, {
+            extend: extend.join(","),
+            include: relationships.join(",")
+        });
     }
 
     // TODO: add support for other types / abstract it for other types
@@ -100,19 +132,17 @@ export default class AppleMusicApi {
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<SearchResponse<T, U>> {
-        return (await this.http.get(`/v1/catalog/${this.storefront}/search`, {
-            params: {
-                ...this.addScopingParameters("albums", relationships, extend),
-                ...{
-                    term: term,
-                    types: ["albums", "songs"].join(","), // adding "songs" makes search results have albums when searching song name
-                    limit: limit,
-                    offset: offset,
-                    extend: extend.join(","),
-                    include: relationships.join(",")
-                }
+        return await this.get(`${ampApiUrl}/v1/catalog/${this.storefront}/search`, {
+            ...this.addScopingParameters("albums", relationships, extend),
+            ...{
+                term: term,
+                types: ["albums", "songs"].join(","), // adding "songs" makes search results have albums when searching song name
+                limit: limit,
+                offset: offset,
+                extend: extend.join(","),
+                include: relationships.join(",")
             }
-        })).data;
+        });
     }
 
     async getWebplayback(
@@ -122,18 +152,18 @@ export default class AppleMusicApi {
         // as we know, we can't have fun things with "WOA" urls
         // https://files.catbox.moe/5oqolg.png (THE LINK WAS CENSORED?? TAKEN DOWN FROM CNN??)
         // https://files.catbox.moe/wjxwzk.png
-        const res = await this.http.post(webplaybackApiUrl, {
+        const res = await this.post<WebplaybackResponse & { failureType?: string }>(webplaybackApiUrl, {
             salableAdamId: trackId,
             language: config.downloader.api.language
         });
 
-        if (res.data?.failureType === "3077") {
+        if (res?.failureType === "3077") {
             throw new HttpException(404, "track not found");
-        } else if (res.data?.failureType !== undefined) {
-            throw new HttpException(500, `upstream webplayback api error: ${res.data.failureType}`);
+        } else if (res?.failureType !== undefined) {
+            throw new HttpException(500, `upstream webplayback api error: ${res.failureType}`);
         }
 
-        return res.data;
+        return res;
     }
 
     async getWidevineLicense(
@@ -141,19 +171,14 @@ export default class AppleMusicApi {
         trackUri: string,
         challenge: string
     ): Promise<WidevineLicenseResponse> {
-        return (await this.http.post(licenseApiUrl, {
+        return (await this.post(licenseApiUrl, {
             challenge: challenge,
             "key-system": "com.widevine.alpha",
             uri: trackUri,
             adamId: trackId,
             isLibrary: false,
             "user-initiated": true
-        }, { headers: {
-            // do these do anything.
-            // i'm including them anyway,,
-            "x-apple-music-user-token": this.http.defaults.headers.common["Media-User-Token"],
-            "x-apple-renewal": true
-        }})).data;
+        }));
     }
 
     // helper function to automatically add scoping parameters

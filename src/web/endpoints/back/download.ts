@@ -53,10 +53,11 @@ router.get(path, async (req, res, next) => {
         }
 
         const decryptionKey =
-            await getKeyFromCache(id, codecType.codecType) ||
+            await getKeyFromCache(id, codecType.codecType) ??
             await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
         await addKeyToCache(id, codecType.codecType, decryptionKey);
 
+        // TODO: stream to user
         const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);
         const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
         const fileName = formatSongForFs(trackAttributes) + fileExt;

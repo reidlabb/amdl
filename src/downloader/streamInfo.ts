@@ -1,11 +1,11 @@
 import * as log from "../log.js";
 import type { SongAttributes } from "../appleMusicApi/types/attributes.js";
 import hls, { Item } from "parse-hls";
-import axios from "axios";
 import { widevine, playready, fairplay } from "../constants/keyFormats.js";
 import { songCodecRegex } from "../constants/codecs.js";
 import type { WebplaybackResponse } from "appleMusicApi/index.js";
 import type { RegularCodecType, WebplaybackCodecType } from "./codecType.js";
+import { request } from "undici";
 
 // why is this private
 // i wish pain on the person who wrote this /j :smile:
@@ -47,8 +47,8 @@ export default class StreamInfo {
         log.warn("if there is a failure--use a codec that uses the webplayback method");
 
         const m3u8Url = trackMetadata.extendedAssetUrls.enhancedHls;
-        const m3u8 = await axios.get(m3u8Url, { responseType: "text" });
-        const m3u8Parsed = hls.default.parse(m3u8.data);
+        const m3u8 = await request(m3u8Url);
+        const m3u8Parsed = hls.default.parse(await m3u8.body.text());
 
         const drmInfos = getDrmInfos(m3u8Parsed);
         const assetInfos = getAssetInfos(m3u8Parsed);
@@ -59,8 +59,8 @@ export default class StreamInfo {
         const drmIds = assetInfos[variantId]["AUDIO-SESSION-KEY-IDS"];
 
         const correctM3u8Url = m3u8Url.substring(0, m3u8Url.lastIndexOf("/")) + "/" + playlist.uri;
-        const correctM3u8 = await axios.get(correctM3u8Url, { responseType: "text" });
-        const correctM3u8Parsed = hls.default.parse(correctM3u8.data);
+        const correctM3u8 = await request(correctM3u8Url);
+        const correctM3u8Parsed = hls.default.parse(await correctM3u8.body.text());
 
         const primaryFileUrl = getPrimaryFileUrl(m3u8Parsed);
 
@@ -97,8 +97,8 @@ export default class StreamInfo {
         const trackId = song.songId;
 
         const m3u8Url = asset.URL;
-        const m3u8 = await axios.get(m3u8Url, { responseType: "text" });
-        const m3u8Parsed = hls.default.parse(m3u8.data);
+        const m3u8 = await request(m3u8Url);
+        const m3u8Parsed = hls.default.parse(await m3u8.body.text());
 
         const primaryFileUrl = getPrimaryFileUrl(m3u8Parsed);
 

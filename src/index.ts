@@ -3,14 +3,33 @@ import process from "node:process";
 import * as log from "./log.js";
 import { appleMusicApi } from "./appleMusicApi/index.js";
 import { app } from "./web/index.js";
+// @ts-expect-error: cacheStores should exist--it does not
+// TODO: file an issue on undici and remove this when fixed
+// DONE: issue filed... https://github.com/nodejs/undici/issues/4614
+// OKAY: it was "resolved". just have to wait for the next release
+import { Agent, interceptors, setGlobalDispatcher, cacheStores } from "undici";
 
-await appleMusicApi.login().catch((err) => {
-    log.error("failed to login to apple music api");
+setGlobalDispatcher(new Agent().compose([
+    interceptors.responseError(),
+    interceptors.redirect(),
+    interceptors.decompress(),
+    // TODO: configurable cache sizes?
+    // these values are pretty nice for non-binary (lol) data
+    interceptors.cache({ store: new cacheStores.MemoryCacheStore({
+        maxSize: 50 * 1024 * 1024, // 5mb
+        maxCount: 1000,
+        maxEntrySize: 5 * 1024 // 5kb
+    })})
+]));
+
+try {
+    await appleMusicApi.login();
+    log.info("logged in to apple music api");
+} catch (err) {
+    log.error("failed to login to apple music api!");
     log.error(err);
     process.exit(1);
-}).finally(() => {
-    log.info("logged in to apple music api");
-});
+}
 
 try {
     const listener = app.listen(config.server.port, () => {
@@ -24,18 +43,7 @@ try {
         else { log.info(`hosting on http://localhost:${address.port}`); }
     });
 } catch (err) {
-    log.error("failed to start server");
+    log.error("failed to start server!");
     log.error(err);
     process.exit(1);
 }
-
-process.on("uncaughtException", (err) => {
-    log.error("uncaught exception!");
-    log.error(err);
-    process.exit(1);
-});
-process.on("unhandledRejection", (err) => {
-    log.error("unhandled rejection!");
-    log.error(err);
-    process.exit(1);
-});

@@ -9,6 +9,7 @@ import { createDecipheriv } from "node:crypto";
 import type { AlbumAttributes } from "../appleMusicApi/types/attributes.js";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
+import { request } from "undici";
 
 export async function downloadSongFile(streamUrl: string, decryptionKey: string, songCodec: RegularCodecType | WebplaybackCodecType, songResponse: GetSongResponse<[], ["albums"]>): Promise<string> {
     let baseOutputName = streamUrl.match(/(?:.*\/)\s*(\S*?)[.?]/)?.[1];
@@ -59,8 +60,8 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
 // TODO: less mem alloc/access
 // TODO: use actual atom scanning. what if the magic bytes appear in a sample
 export async function fetchAndDecryptStreamSegment(segmentUrl: string, decryptionKey: string, fetchLength: number, offset: number): Promise<Uint8Array> {
-    const response = await fetch(segmentUrl, { headers: { "range": `bytes=${offset}-${offset + fetchLength - 1}` }});
-    const file = new Uint8Array(await response.arrayBuffer());
+    const response = await request(segmentUrl, { headers: { "range": `bytes=${offset}-${offset + fetchLength - 1}` }});
+    const file = new Uint8Array(await response.body.bytes());
 
     // this translates to "moof"
     const moof = new Uint8Array([0x6D, 0x6F, 0x6F, 0x66]);
@@ -121,12 +122,9 @@ export async function downloadAlbumCover(albumAttributes: AlbumAttributes<[]>): 
     const imagePath = path.join(config.downloader.cache.directory, imageFileName);
 
     if (await isFileCached(imageFileName) === false) {
-        const response = await fetch(url);
+        const response = await request(url);
 
-        if (!response.ok) { throw new Error(`failed to fetch artwork: ${response.status}`); }
-        if (!response.body) { throw new Error("no response body for artwork!"); }
-
-        await pipeline(response.body as ReadableStream, createWriteStream(imagePath));
+        await pipeline(response.body, createWriteStream(imagePath));
         await addFileToCache(imageFileName);
     }
 

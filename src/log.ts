@@ -89,3 +89,21 @@ export function debug(...message: unknown[]): void { log(Level.Debug, ...message
 export function info(...message: unknown[]): void { log(Level.Info, ...message); }
 export function warn(...message: unknown[]): void { log(Level.Warn, ...message); }
 export function error(...message: unknown[]): void { log(Level.Error, ...message); }
+
+// custom interceptors for uncaught exceptions and unhandled rejections
+// additionally, also wrap warnings (but, make the experimental warning shut up)
+process.on("uncaughtException", (err) => {
+    error("uncaught exception!");
+    error(err);
+    process.exit(1);
+});
+process.on("unhandledRejection", (err) => {
+    error("unhandled rejection!");
+    error(err);
+    process.exit(1);
+});
+process.removeAllListeners("warning");
+process.on("warning", (err) => {
+    if (err.name === "ExperimentalWarning") { return; }
+    warn(err);
+});

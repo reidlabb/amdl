@@ -67,7 +67,7 @@ router.get(path, async (req, res, next) => {
             }
 
             const decryptionKey =
-                await getKeyFromCache(trackId, codecType.codecType) ||
+                await getKeyFromCache(trackId, codecType.codecType) ??
                 await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
             await addKeyToCache(trackId, codecType.codecType, decryptionKey);
 

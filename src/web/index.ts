@@ -5,7 +5,7 @@ import formatDuration from "format-duration";
 import { back, front } from "./endpoints/index.js";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { AxiosError } from "axios";
+import { errors as undiciErrors } from "undici";
 import { env } from "../config.js";
 import { createOpenApiDocument } from "./openApi.js";
 
@@ -54,10 +54,11 @@ app.use((req, _res, next) => {
 
 // ex. if the apple music api returns a 403, we want to return a 403
 // this is so damn useful, i'm so glad i thought of this
-app.use((err: AxiosError, _req: Request, _res: Response, next: NextFunction) => {
-    if (err instanceof AxiosError && err.response) {
-        const status = err.response.status;
-        const message = `upstream api error: ${err.response.status}`;
+// TODO: make this only happen on AM api? doesn't make too much sense otherwise
+app.use((err: undiciErrors.ResponseError, _req: Request, _res: Response, next: NextFunction) => {
+    if (err instanceof undiciErrors.ResponseError) {
+        const status = err.statusCode;
+        const message = `fetch error/upstream error: ${err.statusCode}. file an issue if unexpected/reoccuring`;
 
         next(new HttpException(status, message));
     } else {
