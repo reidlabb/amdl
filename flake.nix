@@ -25,7 +25,7 @@
           # uncomment this and let the build fail, then get the current hash
           # very scuffed but endorsed!
           # npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          npmDepsHash = "sha256-11AayHpPu7ocBPRB5k4SU7b99Aqc/dufAy2Yg5oPvGE=";
+          npmDepsHash = "sha256-7DsCZ+wDLvpqBch2rVbXiSxIaYdITX3RCHfjNx0wUKs=";
 
           nativeBuildInputs = with pkgs; [ makeWrapper ];
 

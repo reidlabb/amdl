@@ -2,10 +2,17 @@ import fs from "node:fs";
 import * as log from "./log.js";
 import toml from "toml";
 import { z, ZodError, ZodObject } from "zod";
-import * as dotenv from "dotenv";
 import { fromZodError } from "zod-validation-error";
+import process from "node:process";
 
-dotenv.config({ quiet: true });
+try {
+    process.loadEnvFile("./.env");
+} catch (err) {
+    if (err instanceof Error && !err.message.includes("ENOENT")) {
+        log.error("error reading or parsing evv file!");
+        log.error(err);
+    }
+}
 
 const configSchema = z.object({
     server: z.object({

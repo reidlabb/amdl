@@ -6,6 +6,7 @@ import fsPromises from "fs/promises";
 import { and, eq } from "drizzle-orm";
 import * as log from "./log.js";
 import prettyBytes from "pretty-bytes";
+import process from "node:process";
 
 // try creating cache if it doesn't exist
 // a bit scuffed but that ok

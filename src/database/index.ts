@@ -2,6 +2,7 @@ import { createClient } from "@libsql/client";
 import { config, env } from "../config.js";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
+import process from "node:process";
 import fsPromises from "fs/promises";
 import * as log from "../log.js";
 
