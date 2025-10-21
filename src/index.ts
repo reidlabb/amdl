@@ -16,7 +16,7 @@ setGlobalDispatcher(new Agent().compose([
     // TODO: configurable cache sizes?
     // these values are pretty nice for non-binary (lol) data
     interceptors.cache({ store: new cacheStores.MemoryCacheStore({
-        maxSize: 50 * 1024 * 1024, // 5mb
+        maxSize: 50 * 1024 * 1024, // 50mb
         maxCount: 1000,
         maxEntrySize: 5 * 1024 // 5kb
     })})

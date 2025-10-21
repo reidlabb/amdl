@@ -24,7 +24,7 @@ const hbs = create({
     helpers: {
         add(a: number, b: number) { return a + b; },
         arrayJoin(array: string[], separator: string) { return array.join(separator); },
-        formatDuration(duration: number) { return formatDuration(duration); },
+        formatDuration(duration?: number) { return duration === undefined ? "n/a" : formatDuration(duration); },
         greaterThan(a: number, b: number) { return a > b; },
         mapNumberToLetter(num: number) { return String.fromCharCode(num + 64); } // A = 1, B = 2
     }

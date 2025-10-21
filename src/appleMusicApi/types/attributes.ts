@@ -53,7 +53,9 @@ export type SongAttributes<
     composerName?: string;
     contentRating?: string;
     discNumber?: number;
-    durationInMillis: number;
+    // >claims to be required
+    // >not present sometimes ??
+    durationInMillis?: number;
     editorialNotes?: EditorialNotes;
     genreNames: string[];
     hasLyrics: boolean;
