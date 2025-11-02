@@ -69,7 +69,7 @@
       nixosModules = rec {
         default = amdl;
         amdl = { config, lib, pkgs, ... }: let
-          inherit (pkgs) system;
+          inherit (pkgs.stdenv.hostPlatform) system;
           inherit (lib) getExe mkEnableOption mkIf mkOption types;
           cfg = config.services.amdl;
         in {
