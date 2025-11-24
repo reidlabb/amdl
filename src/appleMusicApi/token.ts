@@ -9,7 +9,7 @@ export async function getToken(baseUrl: string): Promise<string> {
     const indexResponse = await request(baseUrl);
     const indexBody = await indexResponse.body.text();
 
-    const jsRegex = /\/assets\/index-legacy-[^/]+\.js/;
+    const jsRegex = /\/assets\/index-legacy[~-][^/]+\.js/;
     const jsPath = indexBody.match(jsRegex)?.[0];
 
     if (!jsPath) {
