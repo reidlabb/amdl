@@ -123,7 +123,11 @@
                       type = types.str;
                       default = "cache";
                     };
-                    ttl = mkOption {
+                    database = mkOption {
+                      type = types.str;
+                      default = "file:cache/cache.sqlite";
+                    };
+                    file_ttl = mkOption {
                       type = types.int;
                       default = 3600;
                     };
