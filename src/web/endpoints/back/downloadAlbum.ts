@@ -32,7 +32,6 @@ paths[path] = {
     }
 };
 
-// TODO: include album art?
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
