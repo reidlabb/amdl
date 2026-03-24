@@ -32,21 +32,23 @@ paths[path] = {
     }
 };
 
-interface AlbumEntry {
-    path: string;
-    name: string;
-}
-
 // TODO: include album art?
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
 
-        const files: AlbumEntry[] = [];
-
         const albumMetadata = await appleMusicApi.getAlbum(id);
         const albumAttributes = albumMetadata.data[0].attributes;
         const tracks = albumMetadata.data[0].relationships.tracks.data;
+
+        const fileName = formatAlbumForFs(albumAttributes) + ".zip";
+        res.attachment(fileName);
+        res.flushHeaders();
+
+        const zipArchiver = archiver("zip");
+        zipArchiver.pipe(res);
+        zipArchiver.on("error", (err) => { throw err; });
+        zipArchiver.on("warning", (err) => { throw err; });
 
         for (const track of tracks) {
             const trackId = track.attributes.playParams?.id;
@@ -75,28 +77,13 @@ router.get(path, async (req, res, next) => {
             const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
             const fileName = formatSongForFs(trackAttributes) + fileExt;
 
-            files.push({
-                path: filePath,
-                name: fileName
-            });
-        }
-
-        const fileName = formatAlbumForFs(albumAttributes) + ".zip";
-        const zipArchiver = archiver("zip");
-
-        zipArchiver.on("error", (err) => { throw err; });
-        zipArchiver.pipe(res);
-
-        for (const file of files) {
-            zipArchiver.file(file.path, { name: file.name });
+            zipArchiver.file(filePath, { name: fileName });
         }
 
         const albumCover = await downloadAlbumCover(albumAttributes);
         const albumCoverExt = albumCover.slice(albumCover.lastIndexOf(".") + 1);
-        zipArchiver.file(await downloadAlbumCover(albumAttributes), { name: `cover.${albumCoverExt}` });
+        zipArchiver.file(albumCover, { name: `cover.${albumCoverExt}` });
         zipArchiver.finalize();
-
-        res.attachment(fileName);
     } catch (err) {
         next(err);
     }

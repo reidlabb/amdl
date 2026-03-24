@@ -60,9 +60,11 @@ router.get(path, async (req, res, next) => {
         // TODO: stream to user
         const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);
         const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
-        const fileName = formatSongForFs(trackAttributes) + fileExt;
 
+        const fileName = formatSongForFs(trackAttributes) + fileExt;
         res.attachment(fileName);
+        res.flushHeaders();
+
         res.sendFile(filePath, { root: "." });
     } catch (err) {
         next(err);
