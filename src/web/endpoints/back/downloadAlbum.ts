@@ -42,7 +42,6 @@ router.get(path, async (req, res, next) => {
 
         const fileName = formatAlbumForFs(albumAttributes) + ".zip";
         res.attachment(fileName);
-        res.flushHeaders();
 
         const zipArchiver = archiver("zip");
         zipArchiver.pipe(res);

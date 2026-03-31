@@ -63,7 +63,6 @@ router.get(path, async (req, res, next) => {
 
         const fileName = formatSongForFs(trackAttributes) + fileExt;
         res.attachment(fileName);
-        res.flushHeaders();
 
         res.sendFile(filePath, { root: "." });
     } catch (err) {
