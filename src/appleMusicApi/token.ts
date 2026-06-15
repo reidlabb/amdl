@@ -9,7 +9,7 @@ export async function getToken(baseUrl: string): Promise<string> {
     const indexResponse = await request(baseUrl);
     const indexBody = await indexResponse.body.text();
 
-    const jsRegex = /\/assets\/index-legacy[~-][^/]+\.js/;
+    const jsRegex = /\/assets\/index(?:-legacy)?[~-][^/]+\.js/;
     const jsPath = indexBody.match(jsRegex)?.[0];
 
     if (!jsPath) {
@@ -20,8 +20,8 @@ export async function getToken(baseUrl: string): Promise<string> {
     const jsBody = await jsResponse.body.text();
 
     // the token is actually a base64-encoded JWT
-    // `eyJh` === `{"a`, which is the beginning of a JWT (a is the start of alg)
-    const tokenRegex = /eyJh([^"]*)/;
+    // `eyJh` === `{"`, which is the beginning of a JWT. foolproof? no
+    const tokenRegex = /eyJ([^"]*)/;
     const token = jsBody.match(tokenRegex)?.[0];
 
     if (!token) {

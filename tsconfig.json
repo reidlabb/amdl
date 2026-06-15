@@ -11,7 +11,9 @@
         "skipLibCheck": true,
         "sourceMap": true,
         "resolveJsonModule": true,
-        "baseUrl": "src",
+        "paths": {
+            "*": ["./src/*"]
+        },
         "outDir": "dist"
     },
     "include": ["**/*"],
