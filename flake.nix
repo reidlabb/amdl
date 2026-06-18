@@ -59,7 +59,6 @@
         default = pkgs.mkShell {
           packages = with pkgs; [
             nodejs
-            nodePackages.npm
 
             ffmpeg yt-dlp
           ];
