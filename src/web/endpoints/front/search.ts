@@ -13,7 +13,7 @@ const schema = z.object({
         q: z.optional(z.string()),
         page: z.optional(z.coerce.number().int().min(0))
     }),
-    cookies: apiAuthentication.optional()
+    cookies: apiAuthentication
 });
 
 router.get("/", async (req, res, next) => {

@@ -20,10 +20,7 @@ const schema = z.object({
 
 paths[path] = {
     get: {
-        requestParams: {
-            query: schema.shape.query,
-            cookie: apiAuthentication
-        },
+        requestParams: { query: schema.shape.query },
         responses: {
             200: { description: "returns a m3u8 playlist for the song" },
             400: { description: "bad request, invalid query parameters. sent as a zod error with details" },

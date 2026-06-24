@@ -17,10 +17,7 @@ const schema = z.object({
 
 paths[path] = {
     get: {
-        requestParams: {
-            query: schema.shape.query,
-            cookie: apiAuthentication
-        },
+        requestParams: { query: schema.shape.query },
         responses: {
             200: { description: "returns from the apple music api, track metadata with `extendedAssetUrls` extension and `albums` relationship https://developer.apple.com/documentation/applemusicapi/get-a-catalog-song" },
             400: { description: "bad request, invalid query parameters. sent as a zod error with details" },
