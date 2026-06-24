@@ -10,6 +10,7 @@ import type { AlbumAttributes } from "../appleMusicApi/types/attributes.js";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 import { request } from "undici";
+import * as log from "../log.js";
 
 export async function downloadSongFile(streamUrl: string, decryptionKey: string, songCodec: RegularCodecType | WebplaybackCodecType, songResponse: GetSongResponse<[], ["albums"]>): Promise<string> {
     let baseOutputName = streamUrl.match(/(?:.*\/)\s*(\S*?)[.?]/)?.[1];
@@ -20,7 +21,7 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
 
     if (await isFileCached(decryptedName)) { return decryptedPath; }
 
-    const ytdlp = spawn(config.downloader.ytdlp_path, [
+    const ytDlp = spawn(config.downloader.ytdlp_path, [
         "--quiet",
         "--no-warnings",
         "--allow-unplayable-formats",
@@ -29,8 +30,8 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
         "--output", "-",
         streamUrl
     ], { stdio: ["ignore", "pipe", "pipe"] });
-    ytdlp.on("error", (err) => { throw err; });
-    ytdlp.stderr.on("data", (data) => { throw new Error(data.toString().trim()); });
+    ytDlp.on("error", (err) => { log.error("[yt-dlp]", err); });
+    ytDlp.stderr.on("data", (data) => { log.error("[yt-dlp]", data.toString().trim()); });
 
     const fileMetadata = FileMetadata.fromSongResponse(songResponse);
 
@@ -44,7 +45,7 @@ export async function downloadSongFile(streamUrl: string, decryptionKey: string,
             "-movflags", "+faststart",
             decryptedPath
         ], { stdio: ["pipe", "pipe", "pipe"] });
-        ytdlp.stdout.pipe(child.stdin);
+        ytDlp.stdout.pipe(child.stdin);
         child.on("error", (err) => { rej(err); });
         child.stderr.on("data", (data) => { rej(new Error(data.toString().trim())); });
         child.on("exit", () => { res(); } );
@@ -116,7 +117,7 @@ export async function downloadAlbumCover(albumAttributes: AlbumAttributes<[]>): 
     const name = albumAttributes.playParams?.id;
     const extension = url.slice(url.lastIndexOf(".") + 1);
 
-    if (!name) { throw new Error("no artwork name found! this may indicate the album isnt acessable w/ your subscription!"); }
+    if (!name) { throw new Error("no artwork name found! this may indicate the album isnt accessible w/ your subscription!"); }
 
     const imageFileName = `${name}.${extension}`;
     const imagePath = path.join(config.downloader.cache.directory, imageFileName);

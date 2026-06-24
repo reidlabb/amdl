@@ -8,6 +8,7 @@ import { fromZodError } from "zod-validation-error";
 import { errors as undiciErrors } from "undici";
 import { env } from "../config.js";
 import { createOpenApiDocument } from "./openApi.js";
+import cookieParser from "cookie-parser";
 
 export class HttpException extends Error {
     public readonly status?: number;
@@ -35,6 +36,9 @@ app.set("trust proxy", ["loopback", "uniquelocal"]);
 app.engine("handlebars", hbs.engine);
 app.set("view engine", "handlebars");
 app.set("views", env.VIEWS_DIR);
+
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 app.use("/", express.static(env.PUBLIC_DIR));
 app.get("/favicon.ico", (_req, res) => { res.status(301).location("/favicon.png").send(); });

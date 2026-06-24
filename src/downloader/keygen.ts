@@ -4,8 +4,9 @@ import { appleMusicApi } from "../appleMusicApi/index.js";
 import { dataUriToBuffer } from "data-uri-to-buffer";
 import psshTools from "pssh-tools";
 import * as log from "../log.js";
+import type { AppleMusicApiAuthentication } from "../appleMusicApi/auth.js";
 
-export async function getWidevineDecryptionKey(psshDataUri: string, trackId: string): Promise<string> {
+export async function getWidevineDecryptionKey(psshDataUri: string, trackId: string, auth?: AppleMusicApiAuthentication): Promise<string> {
     let pssh = Buffer.from(dataUriToBuffer(psshDataUri).buffer);
 
     const privateKey = Buffer.from(env.WIDEVINE_PRIVATE_KEY, "base64");
@@ -38,7 +39,8 @@ export async function getWidevineDecryptionKey(psshDataUri: string, trackId: str
     const response = await appleMusicApi.getWidevineLicense(
         trackId,
         psshDataUri,
-        challenge.toString("base64")
+        challenge.toString("base64"),
+        auth
     );
 
     if (typeof response?.license !== "string") { throw new Error("license is gone/not a string! maybe auth failed (unsupported codec?)"); }

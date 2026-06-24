@@ -23,7 +23,7 @@ setGlobalDispatcher(new Agent().compose([
 ]));
 
 try {
-    await appleMusicApi.login();
+    await appleMusicApi.setToken();
     log.info("logged in to apple music api");
 } catch (err) {
     log.error("failed to login to apple music api!");

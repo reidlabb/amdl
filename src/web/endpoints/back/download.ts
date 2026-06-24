@@ -9,6 +9,7 @@ import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type Reg
 import { paths } from "../../openApi.js";
 import { formatSongForFs } from "../../../downloader/format.js";
 import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
+import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -17,7 +18,8 @@ const schema = z.object({
     query: z.object({
         id: z.string(),
         codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
-    })
+    }),
+    cookies: apiAuthentication.optional()
 });
 
 paths[path] = {
@@ -37,10 +39,11 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
+        const auth = (await validate(req, schema)).cookies;
 
         const codecType = new CodecType(codec);
 
-        const trackMetadata = await appleMusicApi.getSong(id);
+        const trackMetadata = await appleMusicApi.getSong(id, auth);
         const trackAttributes = trackMetadata.data[0].attributes;
         const streamInfo = await (codecType.regularOrWebplayback === "regular"
             ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
@@ -54,17 +57,18 @@ router.get(path, async (req, res, next) => {
 
         const decryptionKey =
             await getKeyFromCache(id, codecType.codecType) ??
-            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
+            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId, auth);
         await addKeyToCache(id, codecType.codecType, decryptionKey);
 
-        // TODO: stream to user
-        const filePath = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);
-        const fileExt = "." + filePath.split(".").at(-1) as string; // safe cast, filePath is always a valid path
+        const downloadedSong = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);
 
+        // TODO: this can be wrong sometimes. completely hardcoded
+        // no clue what i'll do about that in the future
+        // for now its fine :D
+        const fileExt = ".m4a";
         const fileName = formatSongForFs(trackAttributes) + fileExt;
         res.attachment(fileName);
-
-        res.sendFile(filePath, { root: "." });
+        res.sendFile(downloadedSong, { root: "." });
     } catch (err) {
         next(err);
     }

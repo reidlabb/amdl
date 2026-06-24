@@ -5,6 +5,7 @@ import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type Reg
 import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import StreamInfo from "../../../downloader/streamInfo.js";
 import { paths } from "../../openApi.js";
+import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -13,12 +14,16 @@ const schema = z.object({
     query: z.object({
         id: z.string(),
         codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
-    })
+    }),
+    cookies: apiAuthentication.optional()
 });
 
 paths[path] = {
     get: {
-        requestParams: { query: schema.shape.query },
+        requestParams: {
+            query: schema.shape.query,
+            cookie: apiAuthentication
+        },
         responses: {
             200: { description: "returns a m3u8 playlist for the song" },
             400: { description: "bad request, invalid query parameters. sent as a zod error with details" },
@@ -30,13 +35,15 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
+        const auth = (await validate(req, schema)).cookies;
+
         const codecType = new CodecType(codec);
 
         const trackMetadata = await appleMusicApi.getSong(id);
         const trackAttributes = trackMetadata.data[0].attributes;
         const streamInfo = await (codecType.regularOrWebplayback === "regular"
             ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
-            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id, auth), codecType.codecType as WebplaybackCodecType)
         );
 
         const m3u8Parsed = streamInfo.streamParsed;

@@ -117,6 +117,10 @@
                     type = types.str;
                     default = "yt-dlp";
                   };
+                  streaming = mkOption {
+                    type = types.bool;
+                    default = false;
+                  };
                   cache = {
                     directory = mkOption {
                       type = types.str;

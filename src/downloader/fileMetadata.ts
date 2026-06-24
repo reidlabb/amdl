@@ -1,6 +1,5 @@
 import type { GetSongResponse } from "../appleMusicApi/types/responses.js";
 import { stripAlbumGarbage } from "./format.js";
-import { downloadAlbumCover } from "./index.js";
 import type { AlbumAttributes, SongAttributes } from "../appleMusicApi/types/attributes.js";
 
 // TODO: simply add more fields. ha!
@@ -73,23 +72,14 @@ export class FileMetadata {
     }
 
     public async setupFfmpegInputs(audioInput: string): Promise<string[]> {
-        const albumCover = await downloadAlbumCover(this.albumAttributes);
-
         return [
             "-i", audioInput,
-            "-i", albumCover,
-            "-map", "0",
-            "-map", "1",
-            "-disposition:v", "attached_pic",
-            "-c:a", "copy",
-            "-c:v", "copy"
+            "-c:a", "copy"
         ];
     }
 
     public async toFfmpegArgs(): Promise<string[]> {
         return [
-            // standard album cover metadata
-            "-metadata:s:v","comment='Cover (front)'",
             // bog standard metadata
             "-metadata", "artist=" + this.artist,
             "-metadata", "title=" + this.title,

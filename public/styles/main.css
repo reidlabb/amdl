@@ -3,15 +3,17 @@
     font-size: 1em;
     line-height: 1.25;
 
+    color-scheme: light dark;
+
     color: var(--foreground);
     background-color: var(--background);
 
-    --foreground: #cdd6f4;
-    --foreground-muted: #a6adc8;
-    --background: #1e1e2e;
-    --background-surface: #313244;
-    --background-surface-muted: #45475a;
-    --shadow: #11111b;
+    --foreground: light-dark(#4c4f69, #cdd6f4);
+    --foreground-muted: light-dark(#6c6f85, #a6adc8);
+    --background: light-dark(#eff1f5, #1e1e2e);
+    --background-surface: light-dark(#ccd0da, #313244);
+    --background-surface-muted: light-dark(#bcc0cc, #45475a);
+    --shadow: light-dark(#ccd0da, #11111b);
 }
 
 body {
@@ -65,11 +67,19 @@ hr {
     margin: 0.25em 0;
 }
 
+form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1em;
+}
+
 input::placeholder {
     color: var(--foreground-muted);
 }
 
-input[type="search"], input[type="submit"], select {
+input[type="search"], input[type="submit"], input[type="password"], input[type="text"], select {
     color: var(--foreground);
     background-color: var(--background-surface);
     border: 0;
@@ -83,6 +93,10 @@ input[type="submit"] {
 }
 
 header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
     background-color: var(--background-surface);
     padding-left: 1em;
     padding-right: 1em;

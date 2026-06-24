@@ -8,6 +8,7 @@ import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
 import { fetchAndDecryptStreamSegment } from "../../../downloader/index.js";
 import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
+import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -31,7 +32,8 @@ const schema = z.object({
                     end: parseInt(values[1], 10)
                 };
             })
-    })
+    }),
+    cookies: apiAuthentication.optional()
 });
 
 paths[path] = {
@@ -50,6 +52,7 @@ router.get(path, async (req, res, next) => {
     try {
         const { id, originalMp4, codec } = (await validate(req, schema)).query;
         const { range: { start, end } } = (await validate(req, schema)).headers;
+        const auth = (await validate(req, schema)).cookies;
 
         const codecType = new CodecType(codec);
 
@@ -57,7 +60,7 @@ router.get(path, async (req, res, next) => {
         const trackAttributes = trackMetadata.data[0].attributes;
         const streamInfo = await (codecType.regularOrWebplayback === "regular"
             ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
-            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id, auth), codecType.codecType as WebplaybackCodecType)
         );
 
         if (streamInfo.widevinePssh === undefined) {
@@ -67,7 +70,7 @@ router.get(path, async (req, res, next) => {
 
         const decryptionKey =
             await getKeyFromCache(id, codecType.codecType) ??
-            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
+            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId, auth);
         await addKeyToCache(id, codecType.codecType, decryptionKey);
 
         const file = await fetchAndDecryptStreamSegment(originalMp4, decryptionKey, end - start + 1, start);

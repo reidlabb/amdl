@@ -3,6 +3,7 @@ import express from "express";
 import { validate } from "../../validate.js";
 import { z } from "zod";
 import { paths } from "../../openApi.js";
+import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -10,7 +11,8 @@ const path = "/getPlaylistMetadata";
 const schema = z.object({
     query: z.object({
         id: z.string()
-    })
+    }),
+    cookies: apiAuthentication.optional()
 });
 
 paths[path] = {
@@ -29,8 +31,9 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id } = (await validate(req, schema)).query;
+        const auth = (await validate(req, schema)).cookies;
 
-        const trackMetadata = await appleMusicApi.getPlaylist(id);
+        const trackMetadata = await appleMusicApi.getPlaylist(id, auth);
 
         res.json(trackMetadata);
     } catch (err) {

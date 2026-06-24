@@ -16,9 +16,11 @@
     },
     "dependencies": {
         "@libsql/client": "^0.15.12",
+        "@types/cookie-parser": "^1.4.10",
         "archiver": "^7.0.1",
         "callsites": "^4.2.0",
         "chalk": "^5.4.1",
+        "cookie-parser": "^1.4.7",
         "data-uri-to-buffer": "^6.0.2",
         "drizzle-orm": "^0.44.4",
         "express": "^5.1.0",
