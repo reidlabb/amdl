@@ -25,7 +25,7 @@
           # uncomment this and let the build fail, then get the current hash
           # very scuffed but endorsed!
           # npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-          npmDepsHash = "sha256-7DsCZ+wDLvpqBch2rVbXiSxIaYdITX3RCHfjNx0wUKs=";
+          npmDepsHash = "sha256-WJ1iHUI5tzXj9j80q05zeTf9LxHb8ltUdcjeJDDlFOo=";
 
           nativeBuildInputs = with pkgs; [ makeWrapper ];
 
@@ -116,10 +116,6 @@
                   ytdlp_path = mkOption {
                     type = types.str;
                     default = "yt-dlp";
-                  };
-                  streaming = mkOption {
-                    type = types.bool;
-                    default = false;
                   };
                   cache = {
                     directory = mkOption {
