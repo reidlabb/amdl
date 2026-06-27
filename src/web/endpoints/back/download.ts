@@ -2,14 +2,13 @@ import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
 import { downloadSongFile } from "../../../downloader/index.js";
 import express from "express";
 import StreamInfo from "../../../downloader/streamInfo.js";
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { z } from "zod";
 import { validate } from "../../validate.js";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
 import { paths } from "../../openApi.js";
 import { formatSongForFs } from "../../../downloader/format.js";
 import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 
 const router = express.Router();
 
@@ -18,8 +17,7 @@ const schema = z.object({
     query: z.object({
         id: z.string(),
         codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
-    }),
-    cookies: apiAuthentication.optional()
+    })
 });
 
 paths[path] = {
@@ -39,11 +37,11 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
-
         const codecType = new CodecType(codec);
 
-        const trackMetadata = await appleMusicApi.getSong(id, auth);
+        const appleMusicApi = new AppleMusicApi();
+
+        const trackMetadata = await appleMusicApi.getSong(id);
         const trackAttributes = trackMetadata.data[0].attributes;
         const streamInfo = await (codecType.regularOrWebplayback === "regular"
             ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
@@ -57,7 +55,7 @@ router.get(path, async (req, res, next) => {
 
         const decryptionKey =
             await getKeyFromCache(id, codecType.codecType) ??
-            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId, auth);
+            await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
         await addKeyToCache(id, codecType.codecType, decryptionKey);
 
         const downloadedSong = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);

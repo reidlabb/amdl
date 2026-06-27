@@ -3,7 +3,7 @@
 // [scoping parameters](https://developer.apple.com/documentation/applemusicapi/handling-resource-representation-and-relationships) assume that we pass down all of the extensions through, this must be reflected in the usage of the api
 // there is a small chance i will add more endpoints
 
-import type { AlbumAttributes, SongAttributes } from "./attributes.js";
+import type { AlbumAttributes, LibrarySongAttributes, SongAttributes } from "./attributes.js";
 import type { AlbumAttributesExtensionTypes, AnyAttributesExtensionTypes, SongAttributesExtensionTypes } from "./extensions.js";
 import type { Relationship, RelationshipType, RelationshipTypeMap, RelationshipTypes } from "./relationships.js";
 
@@ -20,6 +20,29 @@ export interface GetAlbumResponse<
         // https://developer.apple.com/documentation/applemusicapi/albums/attributes-data.dictionary
         attributes: AlbumAttributes<T>;
         // https://developer.apple.com/documentation/applemusicapi/albums/relationships-data.dictionary
+        relationships: {
+            [K in U[number]]: Relationship<
+                K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never
+            >
+        };
+    }[];
+}
+
+// https://developer.apple.com/documentation/applemusicapi/get-all-library-songs
+export interface GetLibrarySongsResponse<
+    // https://developer.apple.com/documentation/applemusicapi/librarysongs/relationships-data.dictionary
+    // TODO: implement "catalog"
+    T extends [],
+    U extends RelationshipTypes<T>
+> {
+    // https://developer.apple.com/documentation/applemusicapi/librarysongs
+    data: {
+        id: string;
+        type: "library-songs";
+        href: string;
+        // https://developer.apple.com/documentation/applemusicapi/librarysongs/attributes-data.dictionary
+        attributes: LibrarySongAttributes;
+        // https://developer.apple.com/documentation/applemusicapi/librarysongs/relationships-data.dictionary
         relationships: {
             [K in U[number]]: Relationship<
                 K extends RelationshipType<T> ? RelationshipTypeMap<T>[K] : never

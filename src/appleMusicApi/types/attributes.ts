@@ -5,6 +5,7 @@ import type {
     SongAttributesExtensionMap, SongAttributesExtensionTypes
 } from "./extensions.js";
 
+// https://developer.apple.com/documentation/applemusicapi/albums/attributes-data.dictionary
 export type AlbumAttributes<
     T extends AlbumAttributesExtensionTypes
 > = {
@@ -28,6 +29,44 @@ export type AlbumAttributes<
 }
     & Pick<AlbumAttributesExtensionMap, T[number]>;
 
+// https://developer.apple.com/documentation/applemusicapi/libraryalbums/attributes-data.dictionary
+export interface LibraryAlbumAttributes {
+    artistName: string;
+    artwork: Artwork;
+    contentRating?: string;
+    dateAdded?: string;
+    name: string;
+    playParams?: PlayParameters;
+    releaseDate?: string;
+    trackCount: number;
+    genreNames: string[];
+    inFavorites?: boolean;
+}
+
+// https://developer.apple.com/documentation/applemusicapi/libraryartists/attributes-data.dictionary
+export interface LibraryArtistAttributes {
+    inFavorites?: boolean;
+    name: string;
+}
+
+// https://developer.apple.com/documentation/applemusicapi/librarysongs/attributes-data.dictionary
+export interface LibrarySongAttributes {
+    albumName?: string;
+    artistName: string;
+    artwork: Artwork;
+    contentRating?: string;
+    discNumber?: number;
+    durationInMillis: number;
+    genreNames: string[];
+    hasLyrics: boolean;
+    inFavorites?: boolean;
+    name: string;
+    playParams?: PlayParameters;
+    releaseDate?: string;
+    trackNumber?: number;
+};
+
+// https://developer.apple.com/documentation/applemusicapi/playlists/attributes-data.dictionary
 export type PlaylistAttributes<
     T extends PlaylistAttributesExtensionTypes
 > = {
@@ -43,6 +82,7 @@ export type PlaylistAttributes<
 }
     & Pick<PlaylistAttributesExtensionMap, T[number]>;
 
+// https://developer.apple.com/documentation/applemusicapi/songs/attributes-data.dictionary
 export type SongAttributes<
     T extends SongAttributesExtensionTypes
 > = {

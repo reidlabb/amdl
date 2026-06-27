@@ -1,11 +1,12 @@
 import { request } from "undici";
 import * as log from "../log.js";
+import { appleMusicHomepageUrl } from "../constants/urls.js";
 
 // basically, i don't want to pay 100 dollars for a dev token to the official API
 // here's the kicker--this token is more "privileged"
 // thanks to this guy complaining to apple for telling us this! https://developer.apple.com/forums/thread/702228
 // apple says "any other method may be blocked at any time" (posted in mar 2022, most likely not happening)
-export async function getToken(baseUrl: string): Promise<string> {
+async function getToken(baseUrl: string): Promise<string> {
     const indexResponse = await request(baseUrl);
     const indexBody = await indexResponse.body.text();
 
@@ -32,3 +33,13 @@ export async function getToken(baseUrl: string): Promise<string> {
 
     return token;
 }
+
+export const appleMusicApiToken = await (async (): Promise<string> => { try {
+    const appleMusicApiToken = await getToken(appleMusicHomepageUrl);
+    log.info("logged in to apple music api");
+    return appleMusicApiToken;
+} catch (err) {
+    log.error("failed to login to apple music api!");
+    log.error(err);
+    process.exit(1);
+}})();

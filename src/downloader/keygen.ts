@@ -1,12 +1,11 @@
 import { Session } from "node-widevine";
 import { env } from "../config.js";
-import { appleMusicApi } from "../appleMusicApi/index.js";
 import { dataUriToBuffer } from "data-uri-to-buffer";
 import psshTools from "pssh-tools";
 import * as log from "../log.js";
-import type { AppleMusicApiAuthentication } from "../appleMusicApi/auth.js";
+import AppleMusicApi from "../appleMusicApi/index.js";
 
-export async function getWidevineDecryptionKey(psshDataUri: string, trackId: string, auth?: AppleMusicApiAuthentication): Promise<string> {
+export async function getWidevineDecryptionKey(psshDataUri: string, trackId: string): Promise<string> {
     let pssh = Buffer.from(dataUriToBuffer(psshDataUri).buffer);
 
     const privateKey = Buffer.from(env.WIDEVINE_PRIVATE_KEY, "base64");
@@ -20,14 +19,13 @@ export async function getWidevineDecryptionKey(psshDataUri: string, trackId: str
         // for some reason, if gotten from a webplayback manifest, the pssh is in a completely different format
         // well, somewhat. it's just the raw data, we have to rebuild the pssh
         const rebuiltPssh = psshTools.widevine.encodePssh({
-            contentId: "meow", // this actually isn't even needed, but this library is somewhat-stubborn
+            contentId: "meow", // this actually isn't even needed, but this library is somewhat stubborn
             dataOnly: false,
             keyIds: [Buffer.from(dataUriToBuffer(psshDataUri).buffer).toString("hex")]
         });
 
         // i'd love to log the error but it feels weird doing that and spammy
-        // also its the most useless error ever. "the pssh is not an actuall pssh"
-        // that typo is intentional, the library is like that
+        // also its the most useless error ever. "the pssh is not an actuall [sic] pssh"
         log.warn("pssh was invalid, treating it as raw data (this is expected in the webplayback manifest)");
         log.warn("this should not throw an error, unless the pssh data is actually invalid");
 
@@ -36,11 +34,11 @@ export async function getWidevineDecryptionKey(psshDataUri: string, trackId: str
         challenge = session.createLicenseRequest();
     }
 
+    const appleMusicApi = new AppleMusicApi();
     const response = await appleMusicApi.getWidevineLicense(
         trackId,
         psshDataUri,
-        challenge.toString("base64"),
-        auth
+        challenge.toString("base64")
     );
 
     if (typeof response?.license !== "string") { throw new Error("license is gone/not a string! maybe auth failed (unsupported codec?)"); }

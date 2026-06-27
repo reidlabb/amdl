@@ -1,7 +1,6 @@
 import { config } from "./config.js";
 import process from "node:process";
 import * as log from "./log.js";
-import { appleMusicApi } from "./appleMusicApi/index.js";
 import { app } from "./web/index.js";
 // @ts-expect-error: cacheStores should exist--it does not
 // TODO: file an issue on undici and remove this when fixed
@@ -21,15 +20,6 @@ setGlobalDispatcher(new Agent().compose([
         maxEntrySize: 5 * 1024 // 5kb
     })})
 ]));
-
-try {
-    await appleMusicApi.setToken();
-    log.info("logged in to apple music api");
-} catch (err) {
-    log.error("failed to login to apple music api!");
-    log.error(err);
-    process.exit(1);
-}
 
 try {
     const listener = app.listen(config.server.port, () => {

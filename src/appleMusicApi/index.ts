@@ -1,63 +1,50 @@
 import { ampApiUrl, appleMusicHomepageUrl, licenseApiUrl, webplaybackApiUrl } from "../constants/urls.js";
-import type { GetAlbumResponse, GetPlaylistResponse, GetSongResponse, SearchResponse } from "./types/responses.js";
+import { type GetLibrarySongsResponse, type GetAlbumResponse, type GetPlaylistResponse, type GetSongResponse, type SearchResponse } from "./types/responses.js";
 import type { AlbumAttributesExtensionTypes, AnyAttributesExtensionTypes, SongAttributesExtensionTypes } from "./types/extensions.js";
-import { getToken } from "./token.js";
-import { config, env } from "../config.js";
+import { appleMusicApiToken } from "./token.js";
 import { HttpException } from "../web/index.js";
 import type { RelationshipTypes } from "./types/relationships.js";
 import { fetch, request } from "undici";
-import type { AppleMusicApiAuthentication } from "./auth.js";
+import { appleMusicAuthenticationCtx, defaultAuth, type AppleMusicAuthentication } from "./auth.js";
 
 export default class AppleMusicApi {
     private sharedHeaders: Headers;
-    private defaultAuth: AppleMusicApiAuthentication;
+    private sharedParams: URLSearchParams;
 
-    public constructor(
-        storefront: string,
-        language: string,
-        mediaUserToken: string
-    ) {
-        this.defaultAuth = {
-            storefront: storefront,
-            language,
-            mediaUserToken
-        };
+    public constructor() {
+        const auth = this.getAuth();
 
         this.sharedHeaders = new Headers();
         this.sharedHeaders.set("Origin", appleMusicHomepageUrl);
-    }
+        this.sharedHeaders.set("Authorization", `Bearer ${appleMusicApiToken}`);
+        this.sharedHeaders.set("Media-User-Token", auth.mediaUserToken);
 
-    public async setToken(): Promise<void> {
-        this.sharedHeaders.set("Authorization", `Bearer ${await getToken(appleMusicHomepageUrl)}`);
+        this.sharedParams = new URLSearchParams();
+        this.sharedParams.set("l", auth.language);
     }
 
     private async get<T> (
         link: string,
-        query: URLSearchParams,
-        auth = this.defaultAuth
+        query: URLSearchParams
     ): Promise<T> {
         const url = new URL(link);
-        const params = query;
-        params.set("l", auth.language);
-        url.search = params.toString();
-        const headers = this.sharedHeaders;
-        headers.set("Media-User-Token", auth.mediaUserToken);
+        url.search = new URLSearchParams([
+            ...this.sharedParams,
+            ...query
+        ]).toString();
 
-        const response = await request(url, { headers });
+        const response = await request(url, { headers: this.sharedHeaders });
         const json = await response.body.json();
         return json as T;
     }
 
     private async post<T> (
         link: string,
-        data: object,
-        auth = this.defaultAuth
+        data: object
     ): Promise<T> {
         const url = new URL(link);
-        const params = new URLSearchParams({ l: auth.language });
-        url.search = params.toString();
+        url.search = this.sharedParams.toString();
         const headers = this.sharedHeaders;
-        headers.set("Media-User-Token", auth.mediaUserToken);
         headers.set("Content-Type", "application/json");
 
         const response = await fetch(url, { method: "POST", body: JSON.stringify(data), headers });
@@ -65,19 +52,46 @@ export default class AppleMusicApi {
         return json as T;
     }
 
+    private getAuth(): AppleMusicAuthentication {
+        const store = appleMusicAuthenticationCtx.getStore();
+        if (
+            store === undefined ||
+            store.language === undefined ||
+            store.mediaUserToken === undefined ||
+            store.storefront === undefined
+        )
+        { return defaultAuth; } else
+        { return store; }
+    }
+
     async getAlbum<
         T extends AlbumAttributesExtensionTypes = [],
         U extends RelationshipTypes<T> = ["tracks"]
     > (
         id: string,
-        auth = this.defaultAuth,
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<GetAlbumResponse<T, U>> {
+        const auth = this.getAuth();
         return await this.get<GetAlbumResponse<T, U>>(`${ampApiUrl}/v1/catalog/${auth.storefront}/albums/${id}`, new URLSearchParams({
             extend: extend.join(","),
             include: relationships.join(",")
-        }), auth);
+        }));
+    }
+
+    async getLibrarySongs<
+        T extends [],
+        U extends RelationshipTypes<T> = ["albums", "artists"]
+    > (
+        limit = 100,
+        offset = 0,
+        relationships: U = ["albums", "artists"] as U
+    ): Promise<GetLibrarySongsResponse<T, U>> {
+        return await this.get<GetLibrarySongsResponse<T, U>>(`${ampApiUrl}/v1/me/library/songs`, new URLSearchParams({
+            limit: limit.toString(),
+            offset: offset.toString(),
+            include: relationships.join(",")
+        }));
     }
 
     // TODO: make it so you can get more than the first 100 tracks
@@ -88,32 +102,32 @@ export default class AppleMusicApi {
         U extends RelationshipTypes<T> = ["tracks"]
     > (
         id: string,
-        auth = this.defaultAuth,
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<GetPlaylistResponse<T, U>> {
+        const auth = this.getAuth();
         return await this.get<GetPlaylistResponse<T, U>>(`${ampApiUrl}/v1/catalog/${auth.storefront}/playlists/${id}`, new URLSearchParams({
             extend: extend.join(","),
             include: relationships.join(",")
-        }), auth);
+        }));
     }
 
     async getSong<
         // TODO: possibly make this any, and use the addScopingParameters function?
         // would be a bit cleaner, almost everywhere, use above in `getAlbum` perchancibly
-        // and `getPlaylst`.... maybe just rewrite the whole thing at this point,, scoping parameters are my OPP
+        // and `getPlaylist`.... maybe just rewrite the whole thing at this point,, scoping parameters are my OPP
         T extends SongAttributesExtensionTypes = ["extendedAssetUrls"],
         U extends RelationshipTypes<T> = ["albums"]
     > (
         id: string,
-        auth = this.defaultAuth,
         extend: T = ["extendedAssetUrls"] as T,
         relationships: U = ["albums"] as U
     ): Promise<GetSongResponse<T, U>> {
+        const auth = this.getAuth();
         return await this.get<GetSongResponse<T, U>>(`${ampApiUrl}/v1/catalog/${auth.storefront}/songs/${id}`, new URLSearchParams({
             extend: extend.join(","),
             include: relationships.join(",")
-        }), auth);
+        }));
     }
 
     // TODO: add support for other types / abstract it for other types
@@ -125,10 +139,10 @@ export default class AppleMusicApi {
         term: string,
         limit = 100,
         offset = 0,
-        auth = this.defaultAuth,
         extend: T = [] as unknown[] as T,
         relationships: U = ["tracks"] as U
     ): Promise<SearchResponse<T, U>> {
+        const auth = this.getAuth();
         return await this.get(`${ampApiUrl}/v1/catalog/${auth.storefront}/search`, new URLSearchParams({
             ...this.addScopingParameters("albums", relationships, extend),
             term: term,
@@ -137,21 +151,19 @@ export default class AppleMusicApi {
             offset: offset.toString(),
             extend: extend.join(","),
             include: relationships.join(",")
-        }), auth);
+        }));
     }
 
-    async getWebplayback(
-        trackId: string,
-        auth = this.defaultAuth
-    ): Promise<WebplaybackResponse> {
+    async getWebplayback(trackId: string): Promise<WebplaybackResponse> {
         // no way around this
         // as we know, we can't have fun things with "WOA" urls
         // https://files.catbox.moe/5oqolg.png (THE LINK WAS CENSORED?? TAKEN DOWN FROM CNN??)
         // https://files.catbox.moe/wjxwzk.png
+        const auth = this.getAuth();
         const res = await this.post<WebplaybackResponse & { failureType?: string }>(webplaybackApiUrl, {
             salableAdamId: trackId,
-            language: config.downloader.api.language
-        }, auth);
+            language: auth.language
+        });
 
         if (res.failureType !== undefined) {
             switch (res.failureType) {
@@ -168,8 +180,7 @@ export default class AppleMusicApi {
     async getWidevineLicense(
         trackId: string,
         trackUri: string,
-        challenge: string,
-        auth = this.defaultAuth
+        challenge: string
     ): Promise<WidevineLicenseResponse> {
         return await this.post(licenseApiUrl, {
             challenge,
@@ -178,7 +189,7 @@ export default class AppleMusicApi {
             adamId: trackId,
             isLibrary: false,
             "user-initiated": true
-        }, auth);
+        });
     }
 
     // helper function to automatically add scoping parameters
@@ -198,8 +209,6 @@ export default class AppleMusicApi {
         return params;
     }
 }
-
-export const appleMusicApi = new AppleMusicApi(env.ITUA, config.downloader.api.language, env.MEDIA_USER_TOKEN);
 
 // these are super special types
 // i'm not putting this in the ./types folder.

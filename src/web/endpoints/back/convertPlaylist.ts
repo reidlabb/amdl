@@ -2,10 +2,9 @@ import express from "express";
 import { validate } from "../../validate.js";
 import z from "zod";
 import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type RegularCodecType, type WebplaybackCodecType } from "../../../downloader/codecType.js";
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 import StreamInfo from "../../../downloader/streamInfo.js";
 import { paths } from "../../openApi.js";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -14,8 +13,7 @@ const schema = z.object({
     query: z.object({
         id: z.string(),
         codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
-    }),
-    cookies: apiAuthentication.optional()
+    })
 });
 
 paths[path] = {
@@ -32,15 +30,15 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
-
         const codecType = new CodecType(codec);
+
+        const appleMusicApi = new AppleMusicApi();
 
         const trackMetadata = await appleMusicApi.getSong(id);
         const trackAttributes = trackMetadata.data[0].attributes;
         const streamInfo = await (codecType.regularOrWebplayback === "regular"
             ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
-            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id, auth), codecType.codecType as WebplaybackCodecType)
+            : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(id), codecType.codecType as WebplaybackCodecType)
         );
 
         const m3u8Parsed = streamInfo.streamParsed;

@@ -1,9 +1,8 @@
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import express from "express";
 import { validate } from "../../validate.js";
 import { z } from "zod";
 import { paths } from "../../openApi.js";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 
 const router = express.Router();
 
@@ -11,8 +10,7 @@ const path = "/getTrackMetadata";
 const schema = z.object({
     query: z.object({
         id: z.string()
-    }),
-    cookies: apiAuthentication.optional()
+    })
 });
 
 paths[path] = {
@@ -26,15 +24,13 @@ paths[path] = {
     }
 };
 
-// this endpoint isn't actually used for anything by us
-// it's for people who want to implement apple music downloading into their own apps (ex. discord music bot)
-// it makes it a bit easier to get the metadata for a track knowing the trackId
 router.get(path, async (req, res, next) => {
     try {
         const { id } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
 
-        const trackMetadata = await appleMusicApi.getSong(id, auth);
+        const appleMusicApi = new AppleMusicApi();
+
+        const trackMetadata = await appleMusicApi.getSong(id);
 
         res.json(trackMetadata);
     } catch (err) {

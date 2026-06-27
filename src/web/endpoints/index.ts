@@ -16,6 +16,7 @@ import convertPlaylist from "./back/convertPlaylist.js";
 import downloadSegment from "./back/downloadSegment.js";
 import downloadAlbum from "./back/downloadAlbum.js";
 import getAlbumMetadata from "./back/getAlbumMetadata.js";
+import getLibrarySongs from "./back/getLibrarySongs.js";
 import getPlaylistMetadata from "./back/getPlaylistMetadata.js";
 import getTrackMetadata from "./back/getTrackMetadata.js";
 import backLogin from "./back/login.js";
@@ -26,6 +27,7 @@ export const back = [
     downloadSegment,
     downloadAlbum,
     getAlbumMetadata,
+    getLibrarySongs,
     getPlaylistMetadata,
     getTrackMetadata,
     backLogin,

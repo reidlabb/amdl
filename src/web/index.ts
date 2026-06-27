@@ -9,6 +9,7 @@ import { errors as undiciErrors } from "undici";
 import { env } from "../config.js";
 import { createOpenApiDocument } from "./openApi.js";
 import cookieParser from "cookie-parser";
+import { appleMusicAuthenticationMiddleware } from "../appleMusicApi/auth.js";
 
 export class HttpException extends Error {
     public readonly status?: number;
@@ -37,13 +38,15 @@ app.engine("handlebars", hbs.engine);
 app.set("view engine", "handlebars");
 app.set("views", env.VIEWS_DIR);
 
+// random middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(appleMusicAuthenticationMiddleware);
 
 app.use("/", express.static(env.PUBLIC_DIR));
 app.get("/favicon.ico", (_req, res) => { res.status(301).location("/favicon.png").send(); });
 
-// TODO: customize the "/api" prefix
+// TODO: allow customizing of the "/api" prefix ?
 // currently hardcoded in places like the frontend and openapi document
 back.forEach((route) => { app.use("/api", route); });
 front.forEach((route) => { app.use(route); });

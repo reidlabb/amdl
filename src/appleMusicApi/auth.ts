@@ -1,22 +1,31 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { config, env } from "../config.js";
 import z from "zod";
+import type { NextFunction, Request, Response } from "express";
 
-export interface AppleMusicApiAuthentication {
+export interface AppleMusicAuthentication {
     language: string;
     mediaUserToken: string;
     storefront: string;
 }
 
-export const apiAuthentication = z.preprocess((val) => {
-    if (typeof val !== "object" || val === null) return undefined;
+export const appleMusicAuthentication = z.object({
+    language: z.string(),
+    mediaUserToken: z.string(),
+    storefront: z.string()
+});
 
-    const { language, mediaUserToken, storefront } = val as Record<string, unknown>;
-    if (!language || !mediaUserToken || !storefront) return undefined;
-    return { language, mediaUserToken, storefront };
-}, z.union([
-    z.object({
-        language: z.string(),
-        mediaUserToken: z.string(),
-        storefront: z.string()
-    }),
-    z.undefined()
-]));
+export const appleMusicAuthenticationCtx = new AsyncLocalStorage<AppleMusicAuthentication>();
+export const appleMusicAuthenticationMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+    appleMusicAuthenticationCtx.run({
+        language: req.cookies["language"],
+        mediaUserToken: req.cookies["mediaUserToken"],
+        storefront: req.cookies["storefront"]
+    }, next);
+};
+
+export const defaultAuth: AppleMusicAuthentication = {
+    language: config.downloader.api.language,
+    mediaUserToken: env.MEDIA_USER_TOKEN,
+    storefront: env.ITUA
+};

@@ -4,13 +4,12 @@ import { CodecType, regularCodecTypeSchema, webplaybackCodecTypeSchema, type Reg
 import z from "zod";
 import { validate } from "../../validate.js";
 import StreamInfo from "../../../downloader/streamInfo.js";
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
 import { downloadAlbumCover, downloadSongFile } from "../../../downloader/index.js";
 import { formatAlbumForFs, formatSongForFs } from "../../../downloader/format.js";
 import archiver from "archiver";
 import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 
 const router = express.Router();
 
@@ -19,8 +18,7 @@ const schema = z.object({
     query: z.object({
         id: z.string(),
         codec: z.enum([...regularCodecTypeSchema.options, ...webplaybackCodecTypeSchema.options])
-    }),
-    cookies: apiAuthentication.optional()
+    })
 });
 
 paths[path] = {
@@ -37,9 +35,10 @@ paths[path] = {
 router.get(path, async (req, res, next) => {
     try {
         const { id, codec } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
 
-        const albumMetadata = await appleMusicApi.getAlbum(id, auth);
+        const appleMusicApi = new AppleMusicApi();
+
+        const albumMetadata = await appleMusicApi.getAlbum(id);
         const albumAttributes = albumMetadata.data[0].attributes;
         const tracks = albumMetadata.data[0].relationships.tracks.data;
 
@@ -57,11 +56,11 @@ router.get(path, async (req, res, next) => {
 
             const codecType = new CodecType(codec);
 
-            const trackMetadata = await appleMusicApi.getSong(trackId, auth);
+            const trackMetadata = await appleMusicApi.getSong(trackId);
             const trackAttributes = trackMetadata.data[0].attributes;
             const streamInfo = await (codecType.regularOrWebplayback === "regular"
                 ? StreamInfo.fromTrackMetadata(trackAttributes, codecType.codecType as RegularCodecType)
-                : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(trackId, auth), codecType.codecType as WebplaybackCodecType)
+                : StreamInfo.fromWebplayback(await appleMusicApi.getWebplayback(trackId), codecType.codecType as WebplaybackCodecType)
             );
 
             if (streamInfo.widevinePssh === undefined) {
@@ -71,7 +70,7 @@ router.get(path, async (req, res, next) => {
 
             const decryptionKey =
                 await getKeyFromCache(trackId, codecType.codecType) ??
-                await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId, auth);
+                await getWidevineDecryptionKey(streamInfo.widevinePssh, streamInfo.trackId);
             await addKeyToCache(trackId, codecType.codecType, decryptionKey);
 
             const downloadedSong = await downloadSongFile(streamInfo.streamUrl, decryptionKey, codecType.codecType, trackMetadata);

@@ -1,9 +1,8 @@
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 import express from "express";
 import { validate } from "../../validate.js";
 import { z } from "zod";
 import { paths } from "../../openApi.js";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
 
 const router = express.Router();
 
@@ -11,8 +10,7 @@ const path = "/getAlbumMetadata";
 const schema = z.object({
     query: z.object({
         id: z.string()
-    }),
-    cookies: apiAuthentication.optional()
+    })
 });
 
 paths[path] = {
@@ -26,14 +24,13 @@ paths[path] = {
     }
 };
 
-// see comments in `getTrackMetadata.ts`
-// awawawawawa
 router.get(path, async (req, res, next) => {
     try {
         const { id } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
 
-        const albumMetadata = await appleMusicApi.getAlbum(id, auth);
+        const appleMusicApi = new AppleMusicApi();
+
+        const albumMetadata = await appleMusicApi.getAlbum(id);
 
         res.json(albumMetadata);
     } catch (err) {

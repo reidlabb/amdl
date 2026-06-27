@@ -1,10 +1,9 @@
 import express from "express";
 import { validate } from "../../validate.js";
 import { z } from "zod";
-import { appleMusicApi } from "../../../appleMusicApi/index.js";
 import { config } from "../../../config.js";
 import queryString from "node:querystring";
-import { apiAuthentication } from "../../../appleMusicApi/auth.js";
+import AppleMusicApi from "../../../appleMusicApi/index.js";
 
 const router = express.Router();
 
@@ -12,17 +11,17 @@ const schema = z.object({
     query: z.object({
         q: z.optional(z.string()),
         page: z.optional(z.coerce.number().int().min(0))
-    }),
-    cookies: apiAuthentication
+    })
 });
 
 router.get("/", async (req, res, next) => {
     try {
         const { q, page } = (await validate(req, schema)).query;
-        const auth = (await validate(req, schema)).cookies;
+
+        const appleMusicApi = new AppleMusicApi();
 
         const offset = page ? (page - 1) * config.server.frontend.search_count : 0;
-        const results = (q && await appleMusicApi.search(q, config.server.frontend.search_count, offset, auth)) || undefined;
+        const results = (q && await appleMusicApi.search(q, config.server.frontend.search_count, offset)) || undefined;
         const albums = results?.results?.albums;
 
         res.render("search", {
