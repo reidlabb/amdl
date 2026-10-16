@@ -7,7 +7,7 @@ import StreamInfo from "../../../downloader/streamInfo.js";
 import { getWidevineDecryptionKey } from "../../../downloader/keygen.js";
 import { downloadAlbumCover, downloadSongFile } from "../../../downloader/index.js";
 import { formatAlbumForFs, formatSongForFs } from "../../../downloader/format.js";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { addKeyToCache, getKeyFromCache } from "../../../cache.js";
 import AppleMusicApi from "../../../appleMusicApi/index.js";
 
@@ -45,7 +45,7 @@ router.get(path, async (req, res, next) => {
         const fileName = formatAlbumForFs(albumAttributes) + ".zip";
         res.attachment(fileName);
 
-        const zipArchiver = archiver("zip");
+        const zipArchiver = new ZipArchive();
         zipArchiver.pipe(res);
         zipArchiver.on("error", (err) => { throw err; });
         zipArchiver.on("warning", (err) => { throw err; });

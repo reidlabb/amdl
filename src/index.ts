@@ -2,10 +2,6 @@ import { config } from "./config.js";
 import process from "node:process";
 import * as log from "./log.js";
 import { app } from "./web/index.js";
-// @ts-expect-error: cacheStores should exist--it does not
-// TODO: file an issue on undici and remove this when fixed
-// DONE: issue filed... https://github.com/nodejs/undici/issues/4614
-// OKAY: it was "resolved". just have to wait for the next release
 import { Agent, interceptors, setGlobalDispatcher, cacheStores } from "undici";
 
 setGlobalDispatcher(new Agent().compose([
