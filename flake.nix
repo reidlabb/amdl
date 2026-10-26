@@ -36,7 +36,7 @@
 
             mkdir -p $out
             mv dist drizzle public views node_modules $out/
-            makeWrapper ${pkgs.nodejs-slim}/bin/node $out/bin/amdl \
+            makeWrapper ${pkgs.nodejs-slim_latest}/bin/node $out/bin/amdl \
               --prefix PATH : ${makeBinPath buildInputs} \
               --add-flags "$out/dist/src/index.js" \
               --set MIGRATIONS_DIR $out/drizzle \
@@ -58,7 +58,7 @@
       in {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            nodejs
+            nodejs_latest
 
             ffmpeg yt-dlp
           ];
